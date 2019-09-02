@@ -18,8 +18,9 @@ def main():
     """
     parser = argparse.ArgumentParser(description="")
     parser.add_argument('command', type=str, choices=['showdown', 'local'])
-    parser.add_argument('--bot1', default='gen1/baseline', type=str)
-    parser.add_argument('--bot2', default='gen1/baseline', type=str)
+    parser.add_argument('--gen', default='gen1', type=str)
+    parser.add_argument('--bot1', default='baseline', type=str)
+    parser.add_argument('--bot2', default='baseline', type=str)
     parser.add_argument('--gamemode', default='gen1randombattle', type=str)
     parser.add_argument('--loglevel', default='INFO', type=str)
     args = parser.parse_args(sys.argv[1:])
@@ -34,8 +35,8 @@ def main():
         showdown.Showdown(showdown.HTTP_URI, showdown.WS_URI)
     if args.command == 'local':
         logging.info("Starting Local")
-        bot1 = bots.Bot("p1", args.bot1, True)
-        bot2 = bots.Bot("p2", args.bot2, True)
+        bot1 = bots.Bot("p1", args.gen, args.bot1, True)
+        bot2 = bots.Bot("p2", args.gen, args.bot2, True)
         local.Local(bot1, bot2, args.gamemode)
 
 if __name__ == '__main__':

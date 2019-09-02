@@ -39,7 +39,7 @@ class Bot():
 
         Args:
             name: string of the name of the bot
-            bot_type:
+            bot_type: string of the bot identity
             verbose: boolean value that decides whether or not debug messages
             are shown
         """
