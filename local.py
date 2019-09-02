@@ -1,9 +1,16 @@
-import asyncio
-import bots
+"""
+Local uses Pokemon-Showdown's simulate battle functionality to conduct a fight
+locallay.
+"""
+
 import subprocess
 
-class Governor():
-    def __init__(self, bot1, bot2):
+class Local():
+    """
+    Local uses Pokemon-Showdown's simulate battle functionality to conduct a fight
+    locallay.
+    """
+    def __init__(self, bot1, bot2, gamemode):
         args = ['thirdparty/Pokemon-Showdown/pokemon-showdown', 'simulate-battle']
         self.bot1 = bot1
         self.bot2 = bot2
@@ -15,7 +22,7 @@ class Governor():
             encoding='utf8')
 
         # start battle
-        self.send('>start {"format-id": "gen7randombattle"}')
+        self.send('>start {"format-id": "%s"}' % gamemode)
         self.send('>player p1 {"name":"p1"}')
         self.send('>player p2 {"name":"p1"}')
 
@@ -34,7 +41,6 @@ class Governor():
     def listener(self):
         line = self.process.stdout.readline()
         mode = ''
-
         while line:
             if line == 'update\n':
                 mode = 'all'
@@ -53,7 +59,3 @@ class Governor():
                 elif mode == 'p2':
                     self.bot2.read(line)
             line = self.process.stdout.readline()
-
-bot1 = bots.Bot('bot1', 'gen1.random', True)
-bot2 = bots.Bot('bot2', 'gen1.random', True)
-governor = Governor(bot1, bot2)

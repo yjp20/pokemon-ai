@@ -8,9 +8,9 @@ import sys
 from shutil import rmtree
 from setuptools import find_packages, setup, Command
 
-NAME = 'pokemon-dl'
+NAME = 'pokemon-ai'
 DESCRIPTION = 'pokemon-dl that works with the showdown server with batteries included.'
-URL = 'https://github.com/yjp20/pokemon-dl'
+URL = 'https://github.com/yjp20/pokemon-ai'
 EMAIL = 'youngjinpark20@gmail.com'
 AUTHOR = 'Young Jin Park'
 REQUIRES_PYTHON = '>=3.6.0'

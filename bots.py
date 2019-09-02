@@ -14,12 +14,6 @@ class GameState():
     def __init__(self):
         self.state = {}
 
-    def normalize(self, state):
-        """
-        Normalizes state data to be used.
-        """
-        pass
-
     def parse(self, state, normalize):
         """
         Takes in the state then processes it if ML, or copies it to state
@@ -39,7 +33,7 @@ class Bot():
     Bot that tkes in state message from Pokemon-Showdown and makes decisions
     based on that state information.
     """
-    def __init__(self, name, bot_type, verbose):
+    def __init__(self, name, gen, bot_type, verbose):
         """
         Bot class initializer.
 
@@ -52,7 +46,7 @@ class Bot():
         self.name = name
         self.gamestate = GameState()
         self.verbose = verbose
-        self.decider = importlib.import_module('bots.%s' % bot_type)
+        self.decider = importlib.import_module('..%s' % bot_type, package='bots/%s' % gen)
 
     def debug(self, msg):
         """
