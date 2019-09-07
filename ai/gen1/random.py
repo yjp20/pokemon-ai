@@ -1,0 +1,2 @@
+def choose(gamestate):
+    pass

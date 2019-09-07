@@ -33,30 +33,17 @@ class Bot():
     Bot that tkes in state message from Pokemon-Showdown and makes decisions
     based on that state information.
     """
-    def __init__(self, name, gen, bot_type, verbose):
+    def __init__(self, name, gen, bot_type):
         """
         Bot class initializer.
 
         Args:
             name: string of the name of the bot
             bot_type: string of the bot identity
-            verbose: boolean value that decides whether or not debug messages
-            are shown
         """
         self.name = name
         self.gamestate = GameState()
-        self.verbose = verbose
-        self.decider = importlib.import_module('..%s' % bot_type, package='bots/%s' % gen)
-
-    def debug(self, msg):
-        """
-        Debug messages for the bot if `self.verbose` flag is set.
-
-        Args:
-            msg: string of the message to print
-        """
-        if self.verbose:
-            print('%s: %s' % (self.name, msg))
+        self.choose = importlib.import_module('.%s' % bot_type, package='ai.%s' % gen).choose_move
 
     def read(self, msg):
         """
@@ -66,12 +53,17 @@ class Bot():
         Args:
             msg: different messages sent by the Pokemon-Showdown server to the
             client
+        Return:
+            Returns None if there is no move made, returns a choice string with 'type id modifier'
+            format
         """
         msg = msg.split('|')[1:]
-        self.debug(msg)
 
         if len(msg) < 2 or msg[0] == '':
             pass
         elif msg[0] == 'request':
             self.gamestate.parse(msg[1], False)
-            self.debug(json.dumps(self.gamestate.state, indent=4, sort_keys=True))
+            choice = self.choose(self.gamestate)
+            if choice:
+                return '%s %d %s' % (choice['type'], choice['id'], choice['modifier'])
+        return None
