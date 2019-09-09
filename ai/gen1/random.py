@@ -1,2 +1,2 @@
-def choose(gamestate):
+def choose_move(gamestate):
     pass

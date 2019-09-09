@@ -43,7 +43,10 @@ class Bot():
         """
         self.name = name
         self.gamestate = GameState()
-        self.choose = importlib.import_module('.%s' % bot_type, package='ai.%s' % gen).choose_move
+
+        bot_module = importlib.import_module('.%s' % bot_type, package='ai.%s' % gen)
+        self._choose = bot_module.choose_move
+        self._switch = bot_module.switch
 
     def read(self, msg):
         """
@@ -63,7 +66,14 @@ class Bot():
             pass
         elif msg[0] == 'request':
             self.gamestate.parse(msg[1], False)
-            choice = self.choose(self.gamestate)
-            if choice:
-                return '%s %d %s' % (choice['type'], choice['id'], choice['modifier'])
-        return None
+
+    def choose(self):
+        """  Wrapper for the internal _choose function """
+        choice = self._choose(self.gamestate)
+        if 'modifier' in choice:
+            return f'{choice["type"]} {choice["id"]} {choice["modifier"]}'
+        return f'{choice["type"]} {choice["id"]}'
+
+    def switch(self):
+        choice = self._switch(self.gamestate)
+        return f'{choice["type"]} {choice["id"]}'

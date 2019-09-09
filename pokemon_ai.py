@@ -12,6 +12,8 @@ import bots
 import local
 import showdown
 
+LOGGER = logging.getLogger('pokemon-ai')
+
 def main():
     """
     The main function
@@ -19,9 +21,9 @@ def main():
     parser = argparse.ArgumentParser(description="")
     parser.add_argument('command', type=str, choices=['showdown', 'local'])
     parser.add_argument('--gen', default='gen1', type=str)
-    parser.add_argument('--name', default='battleboy21', type=str)
-    parser.add_argument('--bot1', default='baseline', type=str)
-    parser.add_argument('--bot2', default='baseline', type=str)
+    parser.add_argument('--name', default=None, type=str)
+    parser.add_argument('--bot1', default='default', type=str)
+    parser.add_argument('--bot2', default='default', type=str)
     parser.add_argument('--gamemode', default='gen1randombattle', type=str)
     parser.add_argument('--loglevel', default='INFO', type=str)
     parser.add_argument('--challenge', type=str)
@@ -30,22 +32,24 @@ def main():
     numeric_level = getattr(logging, args.loglevel.upper())
     if not isinstance(numeric_level, int):
         raise ValueError('invalid log level: %s' % args.loglevel.upper())
-    logger = logging.getLogger('pokemon-ai')
-    logger.setLevel(numeric_level)
+    LOGGER.setLevel(logging.DEBUG)
+    LOGGER.info("HELLO")
+
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(numeric_level)
+    LOGGER.addHandler(console_handler)
 
     if args.command == 'showdown':
-        logging.info("Starting Showdown")
+        LOGGER.info("Starting Showdown")
         bot1 = bots.Bot("p1", args.gen, args.bot1)
-        showdown.Showdown(args.name,
-                          bot1,
-                          showdown.WS_URI,
-                          showdown.HTTP_URI,
-                          args.challenge)
+        showdown.Showdown(bot1,
+                          name=args.name,
+                          challenge=args.challenge)
     if args.command == 'local':
-        logging.info("Starting Local")
+        LOGGER.info("Starting Local")
         bot1 = bots.Bot("p1", args.gen, args.bot1)
         bot2 = bots.Bot("p2", args.gen, args.bot2)
-        local.Local(bot1, bot2, args.gamemode)
+        local.Local([bot1, bot2], args.gamemode)
 
 if __name__ == '__main__':
     main()
