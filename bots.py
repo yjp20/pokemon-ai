@@ -1,121 +1,47 @@
 """
-This module reads and stores GameState, then uses the Bot Class to then act on
-that GameState.
+The Bot class dynamically loads individual bot files.
 """
 
-import json
 import importlib
-
-class GameState():
-    """
-    Stores gamestate as GameState.state, which is then used by the bot. This
-    class also normalizes data to be used in ML purporses.
-    """
-    def __init__(self):
-        self.state = {}
-
-        # container for all pokemon data
-        self.party = []
-    def normalize(self, state):
-        """
-        Normalizes state data to be used.
-        """
-        pass
-
-    def parse(self, state, normalize):
-        """
-        Takes in the state then processes it if ML, or copies it to state
-        depending on needs.
-
-        Args:
-            state: state JSON string from Pokemon-Showdown
-            normalize: whether or not to normalize data for ML
-        """
-
-
-        pokemon_party = json.loads(state)
-        #  self.id = pokemon_party['']
-        # take only the relevant stats for each pokemon, for now
-        for ind, pokemon in enumerate(pokemon_party['side']['pokemon']):
-            self.party.append({})
-            self.party[ind]['id'] = pokemon['ident']
-            self.party[ind]['moves'] = pokemon['moves']
-            self.party[ind]['hp'] = pokemon['condition']
-            self.party[ind]['item'] = pokemon['item']
-            for name in pokemon['stats']:
-                self.party[ind][name] = pokemon['stats'][name]
-
-        # TODO: normalize the party values if chosen to
-        if normalize:
-            for poke in self.party:
-                tr = list(map(lambda x: int(x), poke['hp'].split('/')))
-                poke['hp'] = tr[0]/tr[1]
-        
-
-    def update(self, state,  normalize=True):
-            """
-            Updates the gamestate based on the information from STDOUT of the running
-            showdown client, so that the bot can make a decision
-            """
-            
-            data_type = state[0] 
-
-            # upon switch, update the current active pokemon and its hp
-            if data_type == 'switch':
-                tmp = [x for x in self.party if x['id'].split(' ')[1] == state[1].split(' ')[1] and x['id'].split(' ')[0][:-1] in state[1].split(' ')[0][:-1]]
-                print(state[1].split(' ')[0])
-                if len(tmp) > 0:
-                    self.state['active'] = tmp[0]
-            elif data_type == 'turn':
-                print('NOW: TURN {}'.format(state[1]))
-            
+import gamestate
 
 class Bot():
     """
     Bot that tkes in state message from Pokemon-Showdown and makes decisions
     based on that state information.
     """
-    def __init__(self, name, gen, bot_type):
+    def __init__(self, gen, bot_type):
         """
-        Bot class initializer.
-
         Args:
-            name: string of the name of the bot
-            bot_type: string of the bot identity
+            gen (str): generation of the simulator such as 'gen1'
+            bot_type (str): the bot type as defined in ai/{gen}/{bot_type}
         """
-        self.name = name
-        self.gamestate = GameState()
-
+        self.gamestate = gamestate.GameState()
         bot_module = importlib.import_module('.%s' % bot_type, package='ai.%s' % gen)
         self._choose = bot_module.choose_move
-        self._switch = bot_module.switch
 
-    def read(self, msg):
-        """
-        Reads different messages from the server and parses information, then
-        makes a decision.
+    def read(self, line):
+        """ Reads different messages from the server and parses information.
 
         Args:
-            msg: different messages sent by the Pokemon-Showdown server to the
-            client
-        Return:
-            Returns None if there is no move made, returns a choice string with 'type id modifier'
-            format
-        """
-        msg = msg.split('|')[1:]
+            line (str): different messages sent by the Pokemon-Showdown server to the client
 
-        if len(msg) < 2 or msg[0] == '':
+        Return:
+            str: Empty if no move is made
+        """
+        msg = line.split('|')[1:]
+        action = msg[1]
+
+        if len(msg) < 2 or action == '':
             pass
-        elif msg[0] == 'request':
+        elif action == 'request':
             self.gamestate.parse(msg[1], False)
+        elif action == '':
+            pass
 
     def choose(self):
         """  Wrapper for the internal _choose function """
         choice = self._choose(self.gamestate)
         if 'modifier' in choice:
             return f'{choice["type"]} {choice["id"]} {choice["modifier"]}'
-        return f'{choice["type"]} {choice["id"]}'
-
-    def switch(self):
-        choice = self._switch(self.gamestate)
         return f'{choice["type"]} {choice["id"]}'
