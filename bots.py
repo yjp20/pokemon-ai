@@ -5,12 +5,13 @@ The Bot class dynamically loads individual bot files.
 import importlib
 import gamestate
 
+
 class Bot():
     """
     Bot that tkes in state message from Pokemon-Showdown and makes decisions
     based on that state information.
     """
-    def __init__(self, gen, bot_type):
+    def __init__(self, name, gen, bot_type, verbose=False):
         """
         Args:
             gen (str): generation of the simulator such as 'gen1'
