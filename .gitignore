@@ -1,5 +1,6 @@
 __pycache__/
 dist/
+data/*
 package-lock.json
 *.egg-info
 *.swp
