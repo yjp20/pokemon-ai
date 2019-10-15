@@ -11,7 +11,7 @@ class Bot():
     Bot that tkes in state message from Pokemon-Showdown and makes decisions
     based on that state information.
     """
-    def __init__(self, name, gen, bot_type, verbose=False):
+    def __init__(self, gen, bot_type):
         """
         Args:
             gen (str): generation of the simulator such as 'gen1'
@@ -33,12 +33,9 @@ class Bot():
         msg = line.split('|')[1:]
         action = msg[1]
 
-        if len(msg) < 2 or action == '':
-            pass
-        elif action == 'request':
-            self.gamestate.parse(msg[1], False)
-        elif action == '':
-            pass
+        if len(msg) > 1 and action == '':
+            self.gamestate.parse(line)
+
 
     def choose(self):
         """  Wrapper for the internal _choose function """
