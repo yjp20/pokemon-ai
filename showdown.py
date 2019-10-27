@@ -17,7 +17,6 @@ def random_name():
     """ Returns a 18 character long random username of ascii letters """
     return ''.join([random.choice(string.ascii_letters) for n in range(18)])
 
-
 class Showdown():
     """ Uses a selected Bot class to compete within the official Showdown server """
     def __init__(self, bot, **kwargs):

@@ -21,6 +21,7 @@ def main():
     parser = argparse.ArgumentParser(description="")
     parser.add_argument('command', type=str, choices=['showdown', 'local'])
     parser.add_argument('--gen', default='gen1', type=str)
+    parser.add_argument('--num', default=1, type=int)
     parser.add_argument('--name', default=None, type=str)
     parser.add_argument('--bot1', default='default', type=str)
     parser.add_argument('--bot2', default='default', type=str)
@@ -47,9 +48,9 @@ def main():
                           challenge=args.challenge)
     if args.command == 'local':
         LOGGER.info("Starting Local")
-        bot1 = bots.Bot("p1", args.gen, args.bot1)
-        bot2 = bots.Bot("p2", args.gen, args.bot2)
-        local.Local([bot1, bot2], args.gamemode)
+        bot1 = bots.Bot("b1", args.gen, args.bot1)
+        bot2 = bots.Bot("b2", args.gen, args.bot2)
+        local.Local([bot1, bot2], args.gamemode, args.num)
 
 if __name__ == '__main__':
     main()
