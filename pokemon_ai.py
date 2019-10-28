@@ -1,5 +1,4 @@
 #!/bin/python3
-
 """
 The CLI tool to interface with the pokemon-dl application
 """
@@ -13,6 +12,7 @@ import local
 import showdown
 
 LOGGER = logging.getLogger('pokemon-ai')
+
 
 def main():
     """
@@ -43,14 +43,13 @@ def main():
     if args.command == 'showdown':
         LOGGER.info("Starting Showdown")
         bot1 = bots.Bot("p1", args.gen, args.bot1)
-        showdown.Showdown(bot1,
-                          name=args.name,
-                          challenge=args.challenge)
+        showdown.Showdown(bot1, name=args.name, challenge=args.challenge)
     if args.command == 'local':
         LOGGER.info("Starting Local")
         bot1 = bots.Bot("b1", args.gen, args.bot1)
         bot2 = bots.Bot("b2", args.gen, args.bot2)
         local.Local([bot1, bot2], args.gamemode, args.num)
+
 
 if __name__ == '__main__':
     main()

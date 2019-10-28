@@ -1,6 +1,6 @@
 """
 Local uses Pokemon-Showdown's simulate battle functionality to conduct a fight
-locallay.
+localy.
 """
 
 import json
@@ -10,10 +10,11 @@ import subprocess
 MODE_ALL = -1
 LOGGER = logging.getLogger("pokemon-ai.local")
 
+
 class Local():
     """
     Local uses Pokemon-Showdown's simulate battle functionality to conduct a fight
-    locallay.
+    localy.
     """
     def __init__(self, bot_list, gamemode, num):
         args = ['/bin/node', 'multirunner.js', '2>/dev/null']
@@ -25,16 +26,16 @@ class Local():
         self.send(str(num))
         self.bots = [None]
         self.bots.extend(bot_list)
-        while num>0:
+        while num > 0:
             line = self.process.stdout.readline()
-            print("------------------------")
-            print(line)
+            if line != "START\n":
+                LOGGER.error("huh?")
             self.send('>start {"formatid":"%s"}' % gamemode)
             for i in range(1, len(self.bots)):
                 self.bots[i].new_gamestate()
                 self.send('>player p%d {"name":"%s"}' % (i, self.bots[i].name))
             self.listener()
-            print("EXIT:" + str(num))
+            print("FINISHED:" + str(num))
             num -= 1
         self.process.stdin.close()
         self.process.terminate()
@@ -43,22 +44,26 @@ class Local():
     def send(self, cmd):
         """ Send a message to self.subprocess """
         LOGGER.info(cmd)
-        self.process.stdin.write(cmd + '\n')
+        if cmd[-1] != '\n':
+            self.process.stdin.write(cmd + '\n')
+        else:
+            self.process.stdin.write(cmd)
         self.process.stdin.flush()
 
     def listener(self):
         """ Listen for messages from self.subprocess """
         line = '\n'
-        mode = MODE_ALL # Any positive number corresponds to the user s.t. 2 => p2
+        mode = MODE_ALL  # Any positive number corresponds to the user s.t. 2 => p2
         while line:
             line = self.process.stdout.readline()
             msg = line.split('|')
 
             if line == '\n' and mode == MODE_ALL:
                 # Shitty way of recognizing when to ask for a move from the bots
-                LOGGER.debug("---- ASK MOVE----")
+                LOGGER.debug("---- ASK MOVE ----")
                 for i in range(1, len(self.bots)):
-                    if self.bots[i].gamestate.result == -1:
+                    if self.bots[i].gamestate.result == -1 and not self.bots[
+                            i].gamestate.wait:
                         choice = self.bots[i].choose()
                         if choice is not None:
                             choice_str = f'>p{i} {choice}'
@@ -69,7 +74,7 @@ class Local():
 
             elif line == 'sideupdate\n':
                 player = self.process.stdout.readline()
-                mode = int(player[1]) # takes out 2 from p2
+                mode = int(player[1])  # takes out 2 from p2
 
             elif line == 'end\n':
                 result = self.process.stdout.readline()
@@ -93,7 +98,8 @@ class Local():
                         LOGGER.info(f'<p{player_id} {secret_line[:-1]}')
                         LOGGER.info(f'<all {public_line[:-1]}')
                         for i in range(1, len(self.bots)):
-                            self.bots[i].read(secret_line if player_id == i else public_line)
+                            self.bots[i].read(secret_line if player_id ==
+                                              i else public_line)
                     else:
                         for i in range(1, len(self.bots)):
                             self.bots[i].read(line)

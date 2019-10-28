@@ -1,6 +1,6 @@
 def choose_move(gamestate):
     choice = {
         'type': 'default',
-        'id' : '',
+        'id': '',
     }
     return choice

@@ -5,6 +5,7 @@ The Bot class dynamically loads individual bot files.
 import importlib
 import gamestate
 
+
 class Bot():
     """
     Bot that tkes in state message from Pokemon-Showdown and makes decisions
@@ -20,7 +21,8 @@ class Bot():
         self.gamestate = None
         self.gen = gen
         self.new_gamestate()
-        bot_module = importlib.import_module('.%s' % bot_type, package='ai.%s' % gen)
+        bot_module = importlib.import_module('.%s' % bot_type,
+                                             package='ai.%s' % gen)
         self._choose = bot_module.choose_move
 
     def read(self, line):

@@ -7,6 +7,10 @@ Module contains GameState class that adjusts data based on the input from the si
 import json
 import re
 import dex
+import logging
+
+LOGGER = logging.getLogger("pokemon-ai.local")
+
 
 class Move():
     """
@@ -19,8 +23,8 @@ class Move():
         self.name = ""
 
         # Move attributes
-        self.category = "" # Physical, Special, Status
-        self.target = ""   # normal, self
+        self.category = ""  # Physical, Special, Status
+        self.target = ""  # normal, self
         self.type = ""
         self.pp = 0
         self.pp_max = 0
@@ -64,12 +68,13 @@ class Move():
         self.target = move["target"]
         self.type = move["type"]
         if isinstance(move["accuracy"], int):
-            self.accuracy = move["accuracy"]/100
+            self.accuracy = move["accuracy"] / 100
         if isinstance(move["accuracy"], bool):
             self.accuracy = 1
         if "flag" in move:
             for flag in move["flags"]:
                 self.__setattr__(flag, True)
+
 
 class Pokemon():
     """
@@ -85,7 +90,6 @@ class Pokemon():
         self.hp = 1
         self.maxhp = 100
         self.faint = False
-        self.active = False
         self.atk = 100
         self.defense = 100
         self.spa = 100
@@ -114,12 +118,19 @@ class Pokemon():
         if guess:
             # Assumes max EVs and max IVs
             # Presumably, it should make the bot play more safe
-            self.maxhp = (2*pokemon["baseStats"]["hp"] + 30 + 63 + 100) * self.level / 100 + 10
-            self.defense = ((2*pokemon["baseStats"]["def"] + 30 + 63 + 100) * self.level / 100 + 5)
-            self.atk = ((2*pokemon["baseStats"]["atk"] + 30 + 63 + 100) * self.level / 100 + 5)
-            self.spa = ((2*pokemon["baseStats"]["spa"] + 30 + 63 + 100) * self.level / 100 + 5)
-            self.spd = ((2*pokemon["baseStats"]["spd"] + 30 + 63 + 100) * self.level / 100 + 5)
-            self.spe = ((2*pokemon["baseStats"]["spe"] + 30 + 63 + 100) * self.level / 100 + 5)
+            self.maxhp = (2 * pokemon["baseStats"]["hp"] + 30 + 63 +
+                          100) * self.level / 100 + 10
+            self.defense = ((2 * pokemon["baseStats"]["def"] + 30 + 63 + 100) *
+                            self.level / 100 + 5)
+            self.atk = ((2 * pokemon["baseStats"]["atk"] + 30 + 63 + 100) *
+                        self.level / 100 + 5)
+            self.spa = ((2 * pokemon["baseStats"]["spa"] + 30 + 63 + 100) *
+                        self.level / 100 + 5)
+            self.spd = ((2 * pokemon["baseStats"]["spd"] + 30 + 63 + 100) *
+                        self.level / 100 + 5)
+            self.spe = ((2 * pokemon["baseStats"]["spe"] + 30 + 63 + 100) *
+                        self.level / 100 + 5)
+
 
 class GameState():
     """
@@ -131,89 +142,116 @@ class GameState():
         self._set_sim_table()
 
         # META
-        self.gametype = ""      # Stores gametype like "singles" or "doubles"
-        self.gen = gen          # Stores the generation as a string like "gen1"
-        self.tier = ""          # Kind of useless (?), but it stores the game format name
+        self.gametype = ""  # Stores gametype like "singles" or "doubles"
+        self.gen = gen  # Stores the generation as a string like "gen1"
+        self.tier = ""  # Kind of useless (?), but it stores the game format name
         self._player_list = []  # [0] => p1's name | [1] => p2's name  etc...
-        self._player_map = {}   # _player_map{name} => player idx related to that player's name
-                                # like "[Gen 1] Random Battle"
+        self._player_map = {
+        }  # _player_map{name} => player idx related to that player's name
+        # like "[Gen 1] Random Battle"
         self.rated = False
-        self.result = -1        # -1=undecided | 0=tie | x=winning player number
-        self.inactive = False   # Inactive timer
+        self.result = -1  # -1=undecided | 0=tie | x=winning player number
+        self.inactive = False  # Inactive timer
 
         # USEFUL
+        self.wait = False
         self.started = False
         self.force_switch = False
-        self.party = []   # Stores "perfect" information about the bot's pokemons by
-                          # containing the bot's pokemons in an array
-        self.players = [] # Stores "imperfect" information about all pokemons by
-                          # containing an array for each player with each array looking
-                          # something like [Pokemon(), Pokemon(), ...]
-        self.player_active = [False]*4
+        self.party = [
+        ]  # Stores "perfect" information about the bot's pokemons by
+        # containing the bot's pokemons in an array
+        self.players = [
+        ]  # Stores "imperfect" information about all pokemons by
+        # containing an array for each player with each array looking
+        # something like [Pokemon(), Pokemon(), ...]
+        self.player_active = [None] * 4
+        self.player_boost = [None] * 4
         self.turn = 0
         self.upkeep = False
         self.moves = []
 
-        for _ in range(0, 4):
+        for i in range(0, 4):
+            self._reset_boost(i)
             self.players.append(dict())
 
     def __str__(self):
         data = {
-            "gametype":     self.gametype,
-            "gen":          self.gen,
-            "tier":         self.tier,
-            "rated":        self.rated,
-            "result":       self.result,
-            "inactive":     self.inactive,
-            "started":      self.started,
+            "gametype": self.gametype,
+            "gen": self.gen,
+            "tier": self.tier,
+            "rated": self.rated,
+            "result": self.result,
+            "inactive": self.inactive,
+            "started": self.started,
             "force_switch": self.force_switch,
-            "party":        self.party,
-            "players":      self.players,
-            "turn":         self.turn,
-            "upkeep":       self.upkeep,
-            "moves":        self.moves,
-            }
-        return json.dumps(data, default=lambda x: x.__dict__, skipkeys=True, indent=4)
+            "party": self.party,
+            "players": self.players,
+            "turn": self.turn,
+            "upkeep": self.upkeep,
+            "moves": self.moves,
+        }
+        return json.dumps(data,
+                          default=lambda x: x.__dict__,
+                          skipkeys=True,
+                          indent=4)
+
+    def _reset_boost(self, player_idx):
+        self.player_boost[player_idx] = {
+            "atk": 1,
+            "def": 1,
+            "spa": 1,
+            "spd": 1,
+            "spe": 1,
+        }
 
     def _set_sim_table(self):
         self._sim_args_table = {
-            'clearpoke':        self._noop,
-            'teamsize':         self._noop,
-            'teampreview':      self._noop,
-            'rule':             self._noop,
-            'gen':              self._noop,
-            'gametype':         self._set_gametype,
-            'inactive':         self._set_inactive_on,
-            'inactiveoff':      self._set_inactive_off,
-            'player':           self._set_player,
-            'poke':             self._set_team_preview,
-            'rated':            self._set_rated_bool,
-            'request':          self._set_request,
-            'start':            self._set_start,
-            'tie':              self._set_tie,
-            'tier':             self._set_tier,
-            'turn':             self._set_turn,
-            'upkeep':           self._set_upkeep,
-            'win':              self._set_win,
+            'error': self._error,
+            'clearpoke': self._noop,
+            'teamsize': self._noop,
+            'teampreview': self._noop,
+            'rule': self._noop,
+            'gen': self._noop,
+            'gametype': self._set_gametype,
+            'inactive': self._set_inactive_on,
+            'inactiveoff': self._set_inactive_off,
+            'player': self._set_player,
+            'poke': self._set_team_preview,
+            'rated': self._set_rated_bool,
+            'request': self._set_request,
+            'start': self._set_start,
+            'tie': self._set_tie,
+            'tier': self._set_tier,
+            'turn': self._set_turn,
+            'upkeep': self._set_upkeep,
+            'win': self._set_win,
 
             # Imperfect
-            '-crit':            self._noop,
-            '-resisted':        self._noop,
-            '-supereffective':  self._noop,
-            'switch':           self._set_switch,
-            '-damage':          self._set_damage,
-            '-heal':            self._set_damage,
-            'faint':            self._noimpl,
-            '-status':          self._noimpl,
-            'move':             self._noimpl,
-            '-fail':            self._noimpl,
-            }
+            '-crit': self._noop,
+            '-resisted': self._noop,
+            '-fail': self._noop,
+            '-status': self._noop,
+            '-supereffective': self._noop,
+            'cant': self._noop,
+            '-immune': self._noop,
+            '-curestatus': self._noop,
+            '-miss': self._noop,
+            '-damage': self._set_damage,
+            '-heal': self._set_damage,
+            'faint': self._noimpl,
+            '-boost': self._set_boost,
+            'move': self._noimpl,
+            'switch': self._set_switch,
+        }
 
     def _noop(self, _):
         pass
 
     def _noimpl(self, _):
         pass
+
+    def _error(self, args):
+        LOGGER.error(args)
 
     def _set_gametype(self, args):
         self.gametype = args[0]
@@ -243,6 +281,9 @@ class GameState():
     def _set_request(self, args):
         data = json.loads(args[0])
         self.force_switch = False
+        self.wait = False
+        if "wait" in data:
+            self.wait = True
         if "forceSwitch" in data:
             self.force_switch = True
         if "side" in data:
@@ -252,9 +293,9 @@ class GameState():
                 new = Pokemon(self.gen)
                 [_, _, new.name] = read_ident(pokemon["ident"])
                 [_, level] = read_details(pokemon["details"])
-                [new.hp, new.maxhp, new.faint, new.status] = read_condition(pokemon["condition"])
+                [new.hp, new.maxhp, new.faint,
+                 new.status] = read_condition(pokemon["condition"])
                 new.level = int(level)
-                new.active = pokemon["active"]
                 new.defense = int(pokemon["stats"]["def"])
                 new.atk = int(pokemon["stats"]["atk"])
                 new.spa = int(pokemon["stats"]["spa"])
@@ -291,6 +332,8 @@ class GameState():
         [name, level] = read_details(args[1])
         [hp, _, faint, status] = read_condition(args[2])
         player_idx = int(player) - 1
+        self.player_active[player_idx] = name
+        self._reset_boost(player_idx)
         if name not in self.players[player_idx]:
             new = Pokemon(self.gen)
             new.name = name
@@ -298,12 +341,26 @@ class GameState():
             new.hp = hp
             new.faint = faint
             new.status = status
-            new.active = True
             new.find_pokemon(True)
             self.players[player_idx][name] = new
 
+
+#    def _set_
+
     def _set_damage(self, args):
-        pass
+        player_idx = int(args[0][1]) - 1
+        [hp, _, faint, status] = read_condition(args[1])
+        pokemon = self.get_active(player_idx)
+        pokemon.hp = hp
+        pokemon.faint = faint
+        pokemon.status = status
+
+    def _set_boost(self, args):
+        player_idx = int(args[0][1]) - 1
+        self.player_boost[player_idx][args[1]] += int(args[2])
+
+    def get_active(self, player_idx):
+        return self.players[player_idx][self.player_active[player_idx]]
 
     def parse(self, line):
         """
@@ -326,7 +383,8 @@ class GameState():
         if action in self._sim_args_table:
             self._sim_args_table[action](args[1:])
         else:
-            print("Not Handled: %s" % action)
+            LOGGER.error("Not Handled: %s" % action)
+
 
 def standardize_string(string):
     """
@@ -342,13 +400,16 @@ def standardize_string(string):
     """
     return re.sub(r"[^a-zA-Z0-9]", "", string).lower()
 
+
 def read_ident(ident_string):
     [player, idx, name] = re.search(r"p(\d)(\w*): (.*)", ident_string).groups()
     return [player, idx, name]
 
+
 def read_details(detail_string):
     [name, level] = re.search(r"([^,]+), L(\d+)", detail_string).groups()
     return [name, int(level)]
+
 
 def read_condition(condition_string):
     faint = False
@@ -360,7 +421,7 @@ def read_condition(condition_string):
         faint = True
     if re.match(r"(\d+)/(\d+)( \w+)*", condition_string):
         res = re.search(r"(\d+)/(\d+)( \w+)*", condition_string).groups()
-        hp = int(res[0])/int(res[1])
+        hp = int(res[0]) / int(res[1])
         maxhp = int(res[1])
         faint = False
         for status_condition in res[2:]:

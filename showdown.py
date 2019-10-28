@@ -1,5 +1,4 @@
 #!/bin/python3
-
 """
 Uses a selected Bot class to compete within the official Showdown server
 """
@@ -13,9 +12,11 @@ import websockets as ws
 WS_URI = 'ws://sim.smogon.com:8000/showdown/websocket'
 HTTP_URI = 'http://play.pokemonshowdown.com/action.php'
 
+
 def random_name():
     """ Returns a 18 character long random username of ascii letters """
     return ''.join([random.choice(string.ascii_letters) for n in range(18)])
+
 
 class Showdown():
     """ Uses a selected Bot class to compete within the official Showdown server """
@@ -35,9 +36,7 @@ class Showdown():
         else:
             self.on_login = self.auto_find
 
-        asyncio.get_event_loop().run_until_complete(
-            self.init_stream()
-        )
+        asyncio.get_event_loop().run_until_complete(self.init_stream())
 
     def challenge_user(self):
         """ Challenges specified user in self.challenge """
@@ -80,7 +79,7 @@ class Showdown():
                 'act': 'getassertion',
                 'userid': self.name,
                 'challstr': self.challstr,
-                }
+            }
             res = requests.post(self.http_uri, data=payload)
             await self.sock.send(f'|/trn {self.name},0,{res.text}')
         elif msg[1] == 'updateuser':
