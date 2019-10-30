@@ -3,7 +3,7 @@ The Bot class dynamically loads individual bot files.
 """
 
 import importlib
-import gamestate
+import lib.gamestate
 
 
 class Bot():
@@ -29,7 +29,8 @@ class Bot():
         """ Reads different messages from the server and parses information.
 
         Args:
-            line (str): different messages sent by the Pokemon-Showdown server to the client
+            line (str): different messages sent by the Pokemon-Showdown server
+            to the client
 
         Return:
             str: Empty if no move is made
@@ -44,4 +45,4 @@ class Bot():
         return f'{choice["type"]} {choice["id"]}'
 
     def new_gamestate(self):
-        self.gamestate = gamestate.GameState(self.gen)
+        self.gamestate = lib.gamestate.GameState(self.gen)

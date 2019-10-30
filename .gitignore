@@ -4,4 +4,5 @@ data/*
 package-lock.json
 *.egg-info
 *.swp
-
+.idea/
+docs/build/

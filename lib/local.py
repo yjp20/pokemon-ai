@@ -1,6 +1,6 @@
 """
 Local uses Pokemon-Showdown's simulate battle functionality to conduct a fight
-localy.
+locally.
 """
 
 import json
@@ -13,11 +13,11 @@ LOGGER = logging.getLogger("pokemon-ai.local")
 
 class Local():
     """
-    Local uses Pokemon-Showdown's simulate battle functionality to conduct a fight
-    localy.
+    Local uses Pokemon-Showdown's simulate battle functionality to conduct a
+    fight locally.
     """
     def __init__(self, bot_list, gamemode, num):
-        args = ['/bin/node', 'multirunner.js', '2>/dev/null']
+        args = ['/bin/node', 'lib/multirunner.js', '2>/dev/null']
         self.process = subprocess.Popen(args,
                                         stdin=subprocess.PIPE,
                                         stdout=subprocess.PIPE,
@@ -29,13 +29,13 @@ class Local():
         while num > 0:
             line = self.process.stdout.readline()
             if line != "START\n":
-                LOGGER.error("huh?")
+                LOGGER.error("Something is wrong with the multirunner..?")
             self.send('>start {"formatid":"%s"}' % gamemode)
             for i in range(1, len(self.bots)):
                 self.bots[i].new_gamestate()
                 self.send('>player p%d {"name":"%s"}' % (i, self.bots[i].name))
             self.listener()
-            print("FINISHED:" + str(num))
+            LOGGER.info("FINISHED:" + str(num))
             num -= 1
         self.process.stdin.close()
         self.process.terminate()
@@ -53,13 +53,15 @@ class Local():
     def listener(self):
         """ Listen for messages from self.subprocess """
         line = '\n'
-        mode = MODE_ALL  # Any positive number corresponds to the user s.t. 2 => p2
+        mode = MODE_ALL  # Any positive number corresponds to the user's idx
         while line:
             line = self.process.stdout.readline()
             msg = line.split('|')
 
             if line == '\n' and mode == MODE_ALL:
-                # Shitty way of recognizing when to ask for a move from the bots
+                # Shitty way of recognizing when to ask for a move.
+                # I honestly wish there was a better way, but the showdown
+                # protocol was not designed with this in mind.
                 LOGGER.debug("---- ASK MOVE ----")
                 for i in range(1, len(self.bots)):
                     if self.bots[i].gamestate.result == -1 and not self.bots[
@@ -90,7 +92,6 @@ class Local():
                     LOGGER.info(f'<p{mode} {line[:-1]}')
                     self.bots[mode].read(line)
                 else:
-                    LOGGER.info(f'<all {line[:-1]}')
                     if len(msg) > 2 and msg[1] == 'split':
                         player_id = int(msg[2][1])
                         secret_line = self.process.stdout.readline()
@@ -101,5 +102,6 @@ class Local():
                             self.bots[i].read(secret_line if player_id ==
                                               i else public_line)
                     else:
+                        LOGGER.info(f'<all {line[:-1]}')
                         for i in range(1, len(self.bots)):
                             self.bots[i].read(line)

@@ -1,18 +1,28 @@
 """
-Module contains GameState class that adjusts data based on the input from the simulator
+Module contains GameState class that adjusts data based on the input from the
+simulator, either local, online, or even replays.
+
+Currently, this module only supports singles gamemodes, but it should be not
+_too_ difficult to add support to doubles. However, some of the core logic will
+have to be rethought.
+
+There are also some minor actions from the newer generations that are not
+currently handled. Those should be relatively easy to implement.
 """
 
 # pylint: disable=too-many-instance-attributes, invalid-name
 
+import copy
 import json
 import re
-import dex
 import logging
+
+import lib.dex
 
 LOGGER = logging.getLogger("pokemon-ai.local")
 
 
-class Move():
+class Move:
     """
     The Move class stores all the information related to a pokemon move.
     """
@@ -54,12 +64,13 @@ class Move():
         self.snatch = False
         self.sound = False
 
-    def find_move(self):
+    def find_move(self, guess=False):
         """
-        Finds the move within the movedex using its name and fills in various stats and details
-        about the move.
+        Finds the move within the movedex using its name and fills in various
+        stats and details about the move. The only thing that the guess
+        paramter currently does is fill in the pp stat with the pp_max.
         """
-        move = dex.dexes[self.gen]["Movedex"][standardize_string(self.name)]
+        move = lib.dex.dexes[self.gen]["Movedex"][standardize_string(self.name)]
         # print(json.dumps(move, indent=4))
         self.category = move["category"]
         self.num = move["num"]
@@ -67,6 +78,10 @@ class Move():
         self.pp_max = move["pp"]
         self.target = move["target"]
         self.type = move["type"]
+
+        if guess:
+            self.pp = move["pp"]
+
         if isinstance(move["accuracy"], int):
             self.accuracy = move["accuracy"] / 100
         if isinstance(move["accuracy"], bool):
@@ -76,11 +91,11 @@ class Move():
                 self.__setattr__(flag, True)
 
 
-class Pokemon():
+class Pokemon:
     """
-    The Pokemon class stores all the information related to the pokemon and provides various
-    functions that can help bots by accessing relevant information from the pokedex from the
-    Pokemon-Showdown project.
+    The Pokemon class stores all the information related to the pokemon and
+    provides various functions that can help bots by accessing relevant
+    information from the Pokedex from the Pokemon-Showdown project.
     """
     def __init__(self, gen):
         self.gen = gen
@@ -97,23 +112,23 @@ class Pokemon():
         self.spe = 100
         self.ability = ""
         self.item = ""
-        self.moves = []
-        self.status = []
+        self.moves = dict()
+        self.status = set()
         self.types = []
+        self.transformed_as = None # Is a Pokemon instance if the pokemon is transformed
 
     def find_pokemon(self, guess=False):
         """
-        Finds a pokemon within the pokedex using its name and fills in various pokemon
-        stats with the found information. If the `guess` parameter is false, only the pokemon
-        number, name, and type are filled in, but with `guess` true, hp, def, atk, spa, spd, and spe
-        are filled in.
+        Finds a pokemon within the pokedex using its name and fills in various
+        pokemon stats with the found information. If the `guess` parameter is
+        false, only the pokemon number, name, and type are filled in, but with
+        `guess` true, hp, def, atk, spa, spd, and spe are filled in.
 
         Args:
             guess (bool): whether to guess the aforementioned pokemon stats.
         """
-        pokemon = dex.dexes[self.gen]["Pokedex"][standardize_string(self.name)]
+        pokemon = lib.dex.dexes[self.gen]["Pokedex"][standardize_string(self.name)]
         self.num = pokemon["num"]
-        self.name = pokemon["species"]
         self.types = pokemon["types"]
         if guess:
             # Assumes max EVs and max IVs
@@ -132,7 +147,11 @@ class Pokemon():
                         self.level / 100 + 5)
 
 
-class GameState():
+def _error(args):
+    LOGGER.error(args)
+
+
+class GameState:
     """
     Stores gamestate as GameState.state, which is then used by the bot. This
     class also normalizes data to be used in ML purporses.
@@ -141,37 +160,45 @@ class GameState():
         self._sim_args_table = {}
         self._set_sim_table()
 
-        # META
+        # META DATA
         self.gametype = ""  # Stores gametype like "singles" or "doubles"
         self.gen = gen  # Stores the generation as a string like "gen1"
-        self.tier = ""  # Kind of useless (?), but it stores the game format name
+        self.tier = ""  # Kind of useless (?)
         self._player_list = []  # [0] => p1's name | [1] => p2's name  etc...
-        self._player_map = {
-        }  # _player_map{name} => player idx related to that player's name
+
+        # _player_map{name} => player idx related to that player's name
         # like "[Gen 1] Random Battle"
+        self._player_map = {}
+
         self.rated = False
         self.result = -1  # -1=undecided | 0=tie | x=winning player number
         self.inactive = False  # Inactive timer
 
-        # USEFUL
+        # USEFUL DATA
         self.wait = False
         self.started = False
         self.force_switch = False
-        self.party = [
-        ]  # Stores "perfect" information about the bot's pokemons by
+
+        # Stores "perfect" information about the bot's pokemons by
         # containing the bot's pokemons in an array
-        self.players = [
-        ]  # Stores "imperfect" information about all pokemons by
+        self.party = []
+
+        # Stores "imperfect" information about all pokemons by
         # containing an array for each player with each array looking
         # something like [Pokemon(), Pokemon(), ...]
-        self.player_active = [None] * 4
-        self.player_boost = [None] * 4
+        self.players = []
+        self._player_pokemon_map = dict()
+
+        self.player_active = [""] * 4
+        self.player_boost = [dict()] * 4
+        self.player_status = [set()] * 4
         self.turn = 0
         self.upkeep = False
         self.moves = []
 
         for i in range(0, 4):
             self._reset_boost(i)
+            self._reset_status(i)
             self.players.append(dict())
 
     def __str__(self):
@@ -186,32 +213,45 @@ class GameState():
             "force_switch": self.force_switch,
             "party": self.party,
             "players": self.players,
+            "player_boost": self.player_boost,
+            "player_active": self.player_active,
             "turn": self.turn,
             "upkeep": self.upkeep,
             "moves": self.moves,
         }
+
+        def handle(x):
+            if isinstance(x, set):
+                return list(x)
+            return x.__dict__
+
         return json.dumps(data,
-                          default=lambda x: x.__dict__,
+                          default=handle,
                           skipkeys=True,
                           indent=4)
 
-    def _reset_boost(self, player_idx):
+    def _reset_boost(self, player_idx: int):
         self.player_boost[player_idx] = {
-            "atk": 1,
-            "def": 1,
-            "spa": 1,
-            "spd": 1,
-            "spe": 1,
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0,
+            "accuracy": 0,
         }
+
+    def _reset_status(self, player_idx: int):
+        self.player_status[player_idx] = set()
 
     def _set_sim_table(self):
         self._sim_args_table = {
-            'error': self._error,
+            'error': _error,
             'clearpoke': self._noop,
             'teamsize': self._noop,
             'teampreview': self._noop,
             'rule': self._noop,
             'gen': self._noop,
+            '-hint': self._noop,
             'gametype': self._set_gametype,
             'inactive': self._set_inactive_on,
             'inactiveoff': self._set_inactive_off,
@@ -228,19 +268,32 @@ class GameState():
 
             # Imperfect
             '-crit': self._noop,
-            '-resisted': self._noop,
             '-fail': self._noop,
-            '-status': self._noop,
-            '-supereffective': self._noop,
-            'cant': self._noop,
             '-immune': self._noop,
-            '-curestatus': self._noop,
+            '-hitcount': self._noop,
             '-miss': self._noop,
+            '-notarget': self._noop,
+            '-resisted': self._noop,
+            '-supereffective': self._noop,
+            '-mustrecharge': self._noop,
+            '-prepare': self._noop,
+            'cant': self._noop,
+            '-boost': self._set_boost,
+            '-cureteam': self._set_cureteam,
+            '-curestatus': self._set_curestatus,
             '-damage': self._set_damage,
             '-heal': self._set_damage,
+            '-sethp': self._set_hp,
+            '-start': self._set_volatile_status_start,
+            '-activate': self._set_volatile_status_start,
+            '-end': self._set_volatile_status_end,
+            '-status': self._set_status,
+            '-transform': self._set_transform,
+            '-unboost': self._set_unboost,
+            '-clearboost': self._set_clearboost,
+            '-clearallboost': self._set_clearallboost,
             'faint': self._noimpl,
-            '-boost': self._set_boost,
-            'move': self._noimpl,
+            'move': self._set_move,
             'switch': self._set_switch,
         }
 
@@ -249,9 +302,6 @@ class GameState():
 
     def _noimpl(self, _):
         pass
-
-    def _error(self, args):
-        LOGGER.error(args)
 
     def _set_gametype(self, args):
         self.gametype = args[0]
@@ -291,10 +341,10 @@ class GameState():
             pokemons = data["side"]["pokemon"]
             for pokemon in pokemons:
                 new = Pokemon(self.gen)
-                [_, _, new.name] = read_ident(pokemon["ident"])
-                [_, level] = read_details(pokemon["details"])
-                [new.hp, new.maxhp, new.faint,
-                 new.status] = read_condition(pokemon["condition"])
+                (_, _, new.name) = read_ident(pokemon["ident"])
+                (_, level) = read_details(pokemon["details"])
+                (new.hp, new.maxhp, new.faint,
+                 new.status) = read_condition(pokemon["condition"])
                 new.level = int(level)
                 new.defense = int(pokemon["stats"]["def"])
                 new.atk = int(pokemon["stats"]["atk"])
@@ -307,7 +357,7 @@ class GameState():
                     move = Move(self.gen)
                     move.name = move_name
                     move.find_move()
-                    new.moves.append(move)
+                    new.moves["move_name"] = move
                 new.find_pokemon(False)
                 self.party.append(new)
 
@@ -328,12 +378,19 @@ class GameState():
         self.result = 0
 
     def _set_switch(self, args):
-        [player, _, _] = read_ident(args[0])
-        [name, level] = read_details(args[1])
-        [hp, _, faint, status] = read_condition(args[2])
+        (player, _, _) = read_ident(args[0])
+        (name, level) = read_details(args[1])
+        (hp, _, faint, status) = read_condition(args[2])
         player_idx = int(player) - 1
+        name = standardize_string(name)
+
+        if self.player_active[player_idx]:
+            self.get_active(player_idx).transformed_as = None
+
         self.player_active[player_idx] = name
         self._reset_boost(player_idx)
+        self._reset_status(player_idx)
+
         if name not in self.players[player_idx]:
             new = Pokemon(self.gen)
             new.name = name
@@ -344,12 +401,35 @@ class GameState():
             new.find_pokemon(True)
             self.players[player_idx][name] = new
 
+    def _set_status(self, args):
+        # Not sure if this and curestatus are strictly needed, but decided
+        # to do it anyway for the sake of a more complete and ideally foolproof
+        # system.
+        player_idx = int(args[0][1]) - 1
+        pokemon = self.get_active(player_idx)
+        pokemon.status.add(args[1])
 
-#    def _set_
+    def _set_cureteam(self, args):
+        player_idx = int(args[0][1]) - 1
+        for pokemon in self.players[player_idx]:
+            pokemon.status = set()
+
+    def _set_curestatus(self, args):
+        player_idx = int(args[0][1]) - 1
+        pokemon = self.get_active(player_idx)
+        pokemon.status.remove(args[1])
+
+    def _set_clearboost(self, args):
+        player_idx = int(args[0][1]) - 1
+        self._reset_boost(player_idx)
+
+    def _set_clearallboost(self, _):
+        for i in range(0, 4):
+            self._reset_boost(i)
 
     def _set_damage(self, args):
         player_idx = int(args[0][1]) - 1
-        [hp, _, faint, status] = read_condition(args[1])
+        (hp, _, faint, status) = read_condition(args[1])
         pokemon = self.get_active(player_idx)
         pokemon.hp = hp
         pokemon.faint = faint
@@ -359,18 +439,61 @@ class GameState():
         player_idx = int(args[0][1]) - 1
         self.player_boost[player_idx][args[1]] += int(args[2])
 
-    def get_active(self, player_idx):
+    def _set_unboost(self, args):
+        player_idx = int(args[0][1]) - 1
+        self.player_boost[player_idx][args[1]] -= int(args[2])
+
+    def _set_transform(self, args):
+        player_idx = int(args[0][1]) - 1
+        other_idx = int(args[1][1]) - 1
+        player_pokemon = self.get_active(player_idx)
+        other_pokemon = self.get_active(other_idx)
+        player_pokemon.transformed_as = copy.deepcopy(other_pokemon)
+
+    def _set_hp(self, args):
+        player_idx = int(args[0][1]) - 1
+        pokemon = self.get_active(player_idx)
+        hp, _, _, _ = read_condition(args[1])
+        pokemon.hp = hp
+
+    def _set_move(self, args):
+        player_idx = int(args[0][1]) - 1
+        move_name = standardize_string(args[1])
+        if move_name == 'recharge':
+            return
+        pokemon = self.get_active(player_idx)
+        if move_name not in pokemon.moves:
+            move = Move(self.gen)
+            move.name = move_name
+            move.find_move(True)
+            pokemon.moves[move_name] = move
+        pokemon.moves[move_name].pp -= 1
+
+    def _set_volatile_status_start(self, args):
+        player_idx = int(args[0][1]) - 1
+        self.player_status[player_idx].add(standardize_string(args[1]))
+
+    def _set_volatile_status_end(self, args):
+        player_idx = int(args[0][1]) - 1
+        std_string = standardize_string(args[1])
+        if std_string in self.player_status[player_idx]:
+            self.player_status[player_idx].remove(standardize_string(args[1]))
+
+    def get_active(self, player_idx: int) -> Pokemon:
         return self.players[player_idx][self.player_active[player_idx]]
 
     def parse(self, line):
         """
-        Accepts line from simulator and takes appropiate action in modifying the gamestate.
-        An example message from the simulator will look something like
-        "|{action}|{argument 1}|{argument 2 ...}", so this function will look for the
-        corresponding action as defined within the _sim_args_table.
+        Accepts line from simulator and takes appropiate action in modifying
+        the gamestate. An example message from the simulator will look
+        something like "|{action}|{argument 1}|{argument 2 ...}", so this
+        function will look for the corresponding action as defined within the
+        _sim_args_table.
 
         Args:
-            line (str): line that the simulator sends to the bot, which is then passed here
+            line (str):
+                line that the simulator sends to the bot, which is
+                then passed here
         """
         if not line:
             return
@@ -386,32 +509,44 @@ class GameState():
             LOGGER.error("Not Handled: %s" % action)
 
 
-def standardize_string(string):
+def standardize_string(string: str) -> str:
     """
-    Standardizes a given input string such as the name of a pokemon or the name of a move.
-    The standardization consists of striping all non-alphanumeric characters and making the
-    string all lower case.
+    Standardizes a given input string such as the name of a pokemon or the
+    name of a move. The standardization consists of striping all
+    non-alphanumeric characters and making the string all lower case.
 
     Args:
         string (str): input name of a pokemon / move
 
     Returns:
-        (str): the standardized and sanitized string
+        str: the standardized and sanitized string
     """
     return re.sub(r"[^a-zA-Z0-9]", "", string).lower()
 
 
-def read_ident(ident_string):
+def read_ident(ident_string: str) -> (int, str, str):
+    """
+    Reads a string like "p1a: Magikarp" and returns the relevant data encoded
+    within that string.
+    """
     [player, idx, name] = re.search(r"p(\d)(\w*): (.*)", ident_string).groups()
-    return [player, idx, name]
+    return int(player), idx, name
 
 
-def read_details(detail_string):
+def read_details(detail_string: str) -> (str, int):
+    """
+    Reads a string like "Magikary, L89" and returns the relevant data encoded
+    within that string.
+    """
     [name, level] = re.search(r"([^,]+), L(\d+)", detail_string).groups()
-    return [name, int(level)]
+    return name, int(level)
 
 
-def read_condition(condition_string):
+def read_condition(condition_string: str) -> (float, float, bool, set):
+    """
+    Reads a string like "100/200 slp" and returns the relevant data encoded
+    within that string.
+    """
     faint = False
     hp = 0
     maxhp = 100
@@ -426,5 +561,5 @@ def read_condition(condition_string):
         faint = False
         for status_condition in res[2:]:
             if status_condition is not None:
-                status.append(status_condition)
-    return [hp, maxhp, faint, status]
+                status.append(status_condition.strip())
+    return hp, maxhp, faint, set(status)

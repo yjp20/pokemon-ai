@@ -39,7 +39,7 @@ def process_url(url, gameformat):
     if r.status_code != 200:
         raise Exception(f'Failed to get {url}')
     body = str(r.content)
-    games = re.findall('/gen\d[a-z]+-\d+', body)
+    games = re.findall(r'/gen\d[a-z]+-\d+', body)
     for game in games:
         print(game)
         q = c.execute(
@@ -62,7 +62,8 @@ def main():
         for f in formats:
             for i in range(1, query + 1):
                 fmt = f'gen{g}{f}'
-                url = f'https://replay.pokemonshowdown.com/search?user=&format={fmt}&page={i}&output=html'
+                url = f'https://replay.pokemonshowdown.com/search'
+                f'?user=&format={fmt}&page={i}&output=html'
                 process_url(url, fmt)
     conn.close()
 

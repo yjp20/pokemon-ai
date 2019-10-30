@@ -1,6 +1,13 @@
 #!/bin/python3
 """
-Uses a selected Bot class to compete within the official Showdown server
+Uses a selected Bot class to compete within the official Showdown server.
+
+Furthermore this has the functionality, depneding on the arguments, to
+challenge a certain player, accept all challenges, queue for a random
+battle, or do any or all of these combinations.
+
+Login, while possible and not too difficult, is currently unavailable. Once
+other things are done, that is a feature that will be worked on.
 """
 
 import asyncio
@@ -19,7 +26,7 @@ def random_name():
 
 
 class Showdown():
-    """ Uses a selected Bot class to compete within the official Showdown server """
+    """ Uses a selected Bot class to compete online """
     def __init__(self, bot, **kwargs):
         self.bot = bot
         self.ws_uri = kwargs.get("ws_uri", WS_URI)

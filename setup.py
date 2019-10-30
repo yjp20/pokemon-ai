@@ -4,12 +4,10 @@
 
 import io
 import os
-import sys
-from shutil import rmtree
-from setuptools import find_packages, setup, Command
+from setuptools import find_packages, setup
 
 NAME = 'pokemon-ai'
-DESCRIPTION = 'pokemon-dl that works with the showdown server with batteries included.'
+DESCRIPTION = 'pokemon-ai a bot-testing framework with battieries included.'
 URL = 'https://github.com/yjp20/pokemon-ai'
 EMAIL = 'youngjinpark20@gmail.com'
 AUTHOR = 'Young Jin Park'
