@@ -5,7 +5,7 @@
 * to JSON files in the data folder.
 */
 
-const dex = require('./thirdparty/Pokemon-Showdown/sim/dex.js');
+const dex = require('./thirdparty/Pokemon-Showdown/.sim-dist/dex.js');
 const fs = require('fs');
 
 function writeJSON(genstr, moddeddex) {

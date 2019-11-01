@@ -91,7 +91,7 @@ def consider_moves(enemy, ally):
     if ally.speed>speed:
         first = True        
 
-def choose_move():
+def choose_move(gamestate):
     options = []
     consider_moves(enemy, ally)              
     first = False

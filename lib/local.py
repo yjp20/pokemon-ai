@@ -17,7 +17,7 @@ class Local():
     fight locally.
     """
     def __init__(self, bot_list, gamemode, num):
-        args = ['/bin/node', 'lib/multirunner.js', '2>/dev/null']
+        args = ['node', 'lib/multirunner.js', '2>/dev/null']
         self.process = subprocess.Popen(args,
                                         stdin=subprocess.PIPE,
                                         stdout=subprocess.PIPE,
