@@ -5,20 +5,21 @@ features = {} // else (only consider current gamestate for prediction) -> use on
 define damage_calc(self, opp, move):
   if move is physical, atk = ally_active.atk, def = opp_active.def
   else, atk = ally_active.sp, def = opp_active.sp // this becomes spa/spd for later gens 
-  return (((2*self.level/5)+2)*move.power*atk/def+100)/50*typemod*STAB // assuming type-move effectiveness can be found, as well as STAB being 1 or 1.5 based on stab or not
+  return 2*(((2*self.level/5)+2)*move.power*atk/def+100)/50*typemod*STAB/opp.hp - 1 // assuming type-move effectiveness can be found, as well as STAB being 1 or 1.5 based on stab or not
+  // the 2* and -1 above is to normalize
 
 opp_move = prediction for what they will do    // note that this will only be used for the playing bot. also, this is temp variable and not actually a feature  
 if opp_move is switch, opp_active = prediction
 
 damage_dealt = 0
 accuracy = 1
-if opp_active has status, damage_dealt += predicted damage taken
-if opp_move is switch, and there is stage hazard, damage_dealt += predicted damage
+if opp_active has status, damage_dealt += predicted % damage taken
+if opp_move is switch, and there is stage hazard, damage_dealt += predicted % damage
 
 move_feature = {}
 for move in ally_moves: // note that we have the program output a number for each move, only one of these "sets of moves" will be in the features at any one point. 
                         // however, for simplicity the pseudocode is written like this with faith that yj is smart
-  accuracy = move.acc
+  accuracy = move.acc*2 - 1 // normalized by *2 - 1, since acc is between 0 and 1
   damage_dealt += damage_calc(ally_active, opp_active, move)
   switch = 0 // indicating selected move is not switch  
               // note that this bool variable is not a feature either
@@ -29,31 +30,36 @@ for pkmn in ally_pkmn if pkmn is not fainted and is not active:
 
 move_feature append accuracy
 move_feature append critchance // not important in gen 1, but in later gens would be important since some moves have high (or even 100%) crit chance
-if damage_dealt > opp_active.hp, append will_kill_opp = 1 and append damage_dealt
-else append will_kill_opp = 0 and append damage_dealt = opp_active.hp //set damage dealt to their remaining health, if they're going to die
+if damage_dealt >= 2*opp_active.hp-1, append will_kill_opp = 1 and append damage_dealt // Normalizing hp in the middle since damage_dealt is normalized, and comparison still works
+else append will_kill_opp = =1 and append damage_dealt = opp_active.hp //set damage dealt to their remaining health, if they're going to die
 
-features append ally_active.hp
-features append opp_active.hp
-features append opp_active.confused // whether they're confused or not. 1 if confused, 0 if not.
+features append ally_active.hp*2 - 1 // normalizing from 0-1 to -1 to 1
+features append opp_active.hp*2 - 1
+features append opp_active.confused // whether they're confused or not. 1 if confused, -1 if not.
 if ally_active.spe >= opp_active.spe features append 1
-else features append -1
+else features append -1 
+// already normalized, but tracking if ally is faster or slower
 
 // Note that the following few lines are experimental and only for the prediction bot
-features append number_of_unknown_pokemon
-features append number_of_unknown_moves
+features append number_of_unknown_pokemon*2/5 - 1 // normalizing from 0-5 to -1 to 1
+features append number_of_unknown_moves/2 - 1 // normalizing from 0-4 to -1 to 1
 // done for now, but for later gens also possible to do unknown_item or unknown_ability (although the more specific it gets, I suspect it gets less useful as a feature)
 
  // this section is calculating properties of opponent's predicted move, so again, this will only be used for the playing bot and not the prediction
 oppaccuracy = 0
 oppdmg = 0
-if opp_move is not switch, oppaccuracy = opp_move.acc, oppdmg = damage_calc(opp_active, ally_active, opp_move)
+if opp_move is not switch, oppaccuracy = 2*opp_move.acc - 1, oppdmg = damage_calc(opp_active, ally_active, opp_move)
 if ally_active has status, add to oppdmg the predicted amount of damage taken
 if ally_move is switch and there is stage hazard, add to oppdmg the predicted damage taken from stage hazard
 features append oppaccuracy
-if oppdmg > ally_active.hp, append will_kill_ally = 1 and append oppdmg
-else append will_kill_ally = 0 and append oppdmg = ally_active.hp //set the amount of damage to their remaining health if they're going to die... no overflow
+if oppdmg >= ally_active.hp*2-1, append will_kill_ally = 1 and append oppdmg
+else append will_kill_ally = -1 and append oppdmg = ally_active.hp //set the amount of damage to their remaining health if they're going to die... no overflow
 
-move_feature append ally_move // prediction bot's prediction of what ally will do
+ally_move = prediction bot's prediction of what ally will do
+if the move that move_feature describes is ally_move:
+  move_feature append 1
+else, move_feature append -1
+// Basically, one more feature in move_feature saying whether it's the one predicted by the other bot or not
 
 features append move_feature
 //this ends the part where features are calculated for use in the agents
@@ -75,14 +81,18 @@ tableau append features
 hally_accuracy = 1
 hally_expected_damage = 0
 hally_real_damage = 0
+hally_fainted = -1
 hopp_accuracy = 1
 hopp_expected_damage = 0
 hopp_real_damage = 0
+hopp_fainted = -1
 
 if ally_used_move is not switch:
-  ally_accuracy = ally_used_move.accuracy
-  ally_expected_damage = damage_calc(ally, opp, ally_used_move)
-  ally_real_damage = damage_taken
+  hally_accuracy = ally_used_move.accuracy*2 - 1
+  hally_expected_damage = damage_calc(ally, opp, ally_used_move)
+  hally_real_damage = damage_taken
+  if opp fainted that turn:
+    hopp_fainted = 1
 (same as above, but for opp_)
 
 tableau append hally_*, hopp_*
