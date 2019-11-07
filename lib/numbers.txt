@@ -1,0 +1,92 @@
+history = [] // note that it's list because it keeps track of every turn.
+
+features = {} // else (only consider current gamestate for prediction) -> use one dict
+
+define damage_calc(self, opp, move):
+  if move is physical, atk = ally_active.atk, def = opp_active.def
+  else, atk = ally_active.sp, def = opp_active.sp // this becomes spa/spd for later gens 
+  return (((2*self.level/5)+2)*move.power*atk/def+100)/50*typemod*STAB // assuming type-move effectiveness can be found, as well as STAB being 1 or 1.5 based on stab or not
+
+opp_move = prediction for what they will do    // note that this will only be used for the playing bot. also, this is temp variable and not actually a feature  
+if opp_move is switch, opp_active = prediction
+
+damage_dealt = 0
+accuracy = 1
+if opp_active has status, damage_dealt += predicted damage taken
+if opp_move is switch, and there is stage hazard, damage_dealt += predicted damage
+
+move_feature = {}
+for move in ally_moves: // note that we have the program output a number for each move, only one of these "sets of moves" will be in the features at any one point. 
+                        // however, for simplicity the pseudocode is written like this with faith that yj is smart
+  accuracy = move.acc
+  damage_dealt += damage_calc(ally_active, opp_active, move)
+  switch = 0 // indicating selected move is not switch  
+              // note that this bool variable is not a feature either
+
+for pkmn in ally_pkmn if pkmn is not fainted and is not active:
+  switch = 1 // indicating selected move is switch
+  ally_active = pkmn
+
+move_feature append accuracy
+move_feature append critchance // not important in gen 1, but in later gens would be important since some moves have high (or even 100%) crit chance
+if damage_dealt > opp_active.hp, append will_kill_opp = 1 and append damage_dealt
+else append will_kill_opp = 0 and append damage_dealt = opp_active.hp //set damage dealt to their remaining health, if they're going to die
+
+features append ally_active.hp
+features append opp_active.hp
+features append opp_active.confused // whether they're confused or not. 1 if confused, 0 if not.
+if ally_active.spe >= opp_active.spe features append 1
+else features append -1
+
+// Note that the following few lines are experimental and only for the prediction bot
+features append number_of_unknown_pokemon
+features append number_of_unknown_moves
+// done for now, but for later gens also possible to do unknown_item or unknown_ability (although the more specific it gets, I suspect it gets less useful as a feature)
+
+ // this section is calculating properties of opponent's predicted move, so again, this will only be used for the playing bot and not the prediction
+oppaccuracy = 0
+oppdmg = 0
+if opp_move is not switch, oppaccuracy = opp_move.acc, oppdmg = damage_calc(opp_active, ally_active, opp_move)
+if ally_active has status, add to oppdmg the predicted amount of damage taken
+if ally_move is switch and there is stage hazard, add to oppdmg the predicted damage taken from stage hazard
+features append oppaccuracy
+if oppdmg > ally_active.hp, append will_kill_ally = 1 and append oppdmg
+else append will_kill_ally = 0 and append oppdmg = ally_active.hp //set the amount of damage to their remaining health if they're going to die... no overflow
+
+move_feature append ally_move // prediction bot's prediction of what ally will do
+
+features append move_feature
+//this ends the part where features are calculated for use in the agents
+//when you're actually making the final playing agent, pls remember to make the prediction also impact its decisionmaking.
+//I was even thinking maybe just averaging the two bots' outputs for ally moves might be good (of course, after training for prediction bot is done, so that's constant)
+//This would not only introduce human intuition, but make the neural net get better at playing while keeping its prediction process/intuition for its own moves the same
+//but idk i believe in yj so do watever
+//There can be in cases where there is a limited number of usable moves (is taunted, or just used fly and is now in air, or just fainted so need to choose next pokemon),
+//In these cases, we just have a move_feature for possible moves, just ignoring the impossible ones :D
+
+fetch updated gamestate //The following lines will describe the features going into the history list. Thus, this part will only be useful for the prediction bot
+make copy of above features, naming the copy 'memory' // this is since the 'history' list will just be a list of lists, each sub-list including the information available at the time + decisions made
+// this is lowkey a pretty shaky part of this doc
+// we will also need to keep two versions of the "history" for each player, since it will affect predictions
+// this is true even if it's in the player agent, and is also true for the feature array above
+tableau = []
+tableau append features
+
+hally_accuracy = 1
+hally_expected_damage = 0
+hally_real_damage = 0
+hopp_accuracy = 1
+hopp_expected_damage = 0
+hopp_real_damage = 0
+
+if ally_used_move is not switch:
+  ally_accuracy = ally_used_move.accuracy
+  ally_expected_damage = damage_calc(ally, opp, ally_used_move)
+  ally_real_damage = damage_taken
+(same as above, but for opp_)
+
+tableau append hally_*, hopp_*
+//final note: I couldn't decide whether to include info about switching in history...
+//if you are convinced it should be in history (maybe it's obvious that it should be) then tell me :D
+//thx for reading and waiting
+//done on Nov.28 at 4 am
