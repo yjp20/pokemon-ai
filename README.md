@@ -12,8 +12,9 @@ The framework was written in an effort to create our own ultimate bot. While tha
 ## Setup
 
 1. Make sure to get the Pokemon-Showdown submodule: `git submodule update --init --recursive`
-2. Generate the local dex through `node build_dex.js`
-3. Required python modules `websocket`, `requests`, and `coloredlogs`.
+2. Build the Pokemon-Showdown module through `npm i` and `npm build` inside that directory
+3. Generate the local dex through `node build_dex.js`
+4. Required python modules `websocket`, `requests`, and `coloredlogs`.
 
 ## Project Architecture
 

@@ -45,4 +45,4 @@ class Bot():
         return f'{choice["type"]} {choice["id"]}'
 
     def new_gamestate(self):
-        self.gamestate = lib.gamestate.GameState(self.gen)
+        self.gamestate = lib.gamestate.GameState(self.gen, self.name)

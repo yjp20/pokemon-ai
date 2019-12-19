@@ -50,7 +50,7 @@ def main():
         LOGGER.info("Starting Local")
         bot1 = lib.bots.Bot("b1", args.gen, args.bot1)
         bot2 = lib.bots.Bot("b2", args.gen, args.bot2)
-        lib.local.Local([bot1, bot2], args.gamemode, args.num)
+        lib.local.Local([bot1, bot2], args.gamemode, args.num, args.savereplay)
 
 
 if __name__ == '__main__':

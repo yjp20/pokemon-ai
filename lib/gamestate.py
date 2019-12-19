@@ -107,6 +107,8 @@ class Pokemon:
         self.faint = False
         self.atk = 100
         self.defense = 100
+        self.mustrecharge = -1 # must recharge, due to the way that the protocol was implemented,
+                               # is represented as the turn in which mustrecharge is given
         self.spa = 100
         self.spd = 100
         self.spe = 100
@@ -133,22 +135,12 @@ class Pokemon:
         if guess:
             # Assumes max EVs and max IVs
             # Presumably, it should make the bot play more safe
-            self.maxhp = (2 * pokemon["baseStats"]["hp"] + 30 + 63 +
-                          100) * self.level / 100 + 10
-            self.defense = ((2 * pokemon["baseStats"]["def"] + 30 + 63 + 100) *
-                            self.level / 100 + 5)
-            self.atk = ((2 * pokemon["baseStats"]["atk"] + 30 + 63 + 100) *
-                        self.level / 100 + 5)
-            self.spa = ((2 * pokemon["baseStats"]["spa"] + 30 + 63 + 100) *
-                        self.level / 100 + 5)
-            self.spd = ((2 * pokemon["baseStats"]["spd"] + 30 + 63 + 100) *
-                        self.level / 100 + 5)
-            self.spe = ((2 * pokemon["baseStats"]["spe"] + 30 + 63 + 100) *
-                        self.level / 100 + 5)
-
-
-def _error(args):
-    LOGGER.error(args)
+            self.maxhp = (2 * pokemon["baseStats"]["hp"] + 30 + 63) * self.level / 100 + self.level + 10
+            self.defense = ((2 * pokemon["baseStats"]["def"] + 30 + 63) * self.level / 100 + 5)
+            self.atk = ((2 * pokemon["baseStats"]["atk"] + 30 + 63) * self.level / 100 + 5)
+            self.spa = ((2 * pokemon["baseStats"]["spa"] + 30 + 63) * self.level / 100 + 5)
+            self.spd = ((2 * pokemon["baseStats"]["spd"] + 30 + 63) * self.level / 100 + 5)
+            self.spe = ((2 * pokemon["baseStats"]["spe"] + 30 + 63) * self.level / 100 + 5)
 
 
 class GameState:
@@ -156,7 +148,7 @@ class GameState:
     Stores gamestate as GameState.state, which is then used by the bot. This
     class also normalizes data to be used in ML purporses.
     """
-    def __init__(self, gen):
+    def __init__(self, gen, name):
         self._sim_args_table = {}
         self._set_sim_table()
 
@@ -164,6 +156,8 @@ class GameState:
         self.gametype = ""  # Stores gametype like "singles" or "doubles"
         self.gen = gen  # Stores the generation as a string like "gen1"
         self.tier = ""  # Kind of useless (?)
+        self.player_idx = -1 # Index of this player
+        self.player_name = name
         self._player_list = []  # [0] => p1's name | [1] => p2's name  etc...
 
         # _player_map{name} => player idx related to that player's name
@@ -201,7 +195,7 @@ class GameState:
             self._reset_status(i)
             self.players.append(dict())
 
-    def __str__(self):
+    def __dict__(self):
         data = {
             "gametype": self.gametype,
             "gen": self.gen,
@@ -218,7 +212,13 @@ class GameState:
             "turn": self.turn,
             "upkeep": self.upkeep,
             "moves": self.moves,
+            "player_idx": self.player_idx,
+            "player_name": self.player_name,
         }
+        return data
+
+    def __str__(self):
+        data = self.__dict__()
 
         def handle(x):
             if isinstance(x, set):
@@ -275,10 +275,10 @@ class GameState:
             '-notarget': self._noop,
             '-resisted': self._noop,
             '-supereffective': self._noop,
-            '-mustrecharge': self._noop,
             '-prepare': self._noop,
             'cant': self._noop,
             '-boost': self._set_boost,
+            '-mustrecharge': self._set_mustrecharge,
             '-cureteam': self._set_cureteam,
             '-curestatus': self._set_curestatus,
             '-damage': self._set_damage,
@@ -314,6 +314,8 @@ class GameState:
 
     def _set_player(self, args):
         self._player_map[args[1]] = int(args[0][1])
+        if args[1] == self.player_name:
+            self.player_idx = int(args[0][1]) - 1
         self._player_list.append(args[1])
 
     def _set_team_preview(self, args):
@@ -357,7 +359,7 @@ class GameState:
                     move = Move(self.gen)
                     move.name = move_name
                     move.find_move()
-                    new.moves["move_name"] = move
+                    new.moves[move_name] = move
                 new.find_pokemon(False)
                 self.party.append(new)
 
@@ -366,6 +368,13 @@ class GameState:
 
     def _set_upkeep(self, _):
         self.upkeep = True
+
+    def _set_mustrecharge(self, args):
+        (player, idx, name) = read_ident(args[0])
+        player_idx = int(player) - 1
+        self.get_active(player_idx).mustrecharge = self.turn
+        if idx == self.player_idx:
+            self.get_player_active().mustrecharge = self.turn
 
     def _set_turn(self, args):
         self.turn = int(args[0])
@@ -449,6 +458,8 @@ class GameState:
         player_pokemon = self.get_active(player_idx)
         other_pokemon = self.get_active(other_idx)
         player_pokemon.transformed_as = copy.deepcopy(other_pokemon)
+        if player_idx == self.player_idx:
+            p = self.get_player_active().transformed_as = copy.deepcopy(other_pokemon)
 
     def _set_hp(self, args):
         player_idx = int(args[0][1]) - 1
@@ -482,6 +493,12 @@ class GameState:
     def get_active(self, player_idx: int) -> Pokemon:
         return self.players[player_idx][self.player_active[player_idx]]
 
+    def get_player_active(self) -> Pokemon:
+        return get_active(self.player_idx)
+
+    def get_boost(self, idx, name) -> int:
+        return self.player_boost[idx][name]
+
     def parse(self, line):
         """
         Accepts line from simulator and takes appropiate action in modifying
@@ -507,6 +524,10 @@ class GameState:
             self._sim_args_table[action](args[1:])
         else:
             LOGGER.error("Not Handled: %s" % action)
+
+
+def _error(args):
+    LOGGER.error(args)
 
 
 def standardize_string(string: str) -> str:

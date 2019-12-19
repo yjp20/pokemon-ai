@@ -1,0 +1,51 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<link href="web/jsoneditor/dist/jsoneditor.min.css" rel="stylesheet" type="text/css">
+    <script src="web/jsoneditor/dist/jsoneditor.min.js"></script>
+<style>
+.wrapper {
+	height: 360px;
+}
+.info {
+	display: flex;
+}
+.box {
+	flex: 1;
+}
+#battle-log {
+	font-family: sans-serif;
+}
+</style>
+	</head>
+	<body>
+		<div class="wrapper">
+			<div id="battle"></div>
+		</div>
+		<div class="controls">
+			<button onclick="Replay.reset()"> Reset </button>
+			<button onclick="Replay.back()"> Back </button>
+			<button onclick="Replay.next()"> Next </button>
+			<button onclick="Replay.backEditor()"> BackEditor </button>
+			<button onclick="Replay.nextEditor()"> NextEditor </button>
+		</div>
+		<div class="info">
+			<div class="box"><div id="battle-log"></div></div>
+			<div class="box">
+				<div id="bot1-viewer"></div>
+				<div id="bot1-norm-viewer"></div>
+			</div>
+			<div class="box">
+				<div id="bot2-viewer"></div>
+				<div id="bot2-norm-viewer"></div>
+			</div>
+		</div>
+		<script id="log" type="text/plain">{{ log }}</script>
+		<script id="bot1" type="text/plain">{{ bot1 }}</script>
+		<script id="bot2" type="text/plain">{{ bot2 }}</script>
+		<script id="bot1-norm" type="text/plain">{{ bot1_norm }}</script>
+		<script id="bot2-norm" type="text/plain">{{ bot2_norm }}</script>
+		<script src="./web/replay.js"></script>
+	</body>
+</html>
