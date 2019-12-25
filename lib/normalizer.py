@@ -161,8 +161,8 @@ def normalize(g, player_idx):
     n = dict()
     n['player_faster_than_opp'] = g.get_active(pi).spd >= g.get_active(oi).spd
 
-    for i in (('player', pi), ('opponent', oi)):
-        name, idx = i
+    for i in (('player', pi, oi), ('opponent', oi, pi)):
+        name, idx, opp = i
         n[f'percent_known_of_{name}'] = len(g.players[idx-1]) / 6
         n[f'percent_known_moves_of_{name}_active'] = len(g.get_active(idx).moves) / 4
         n[f'level_of_{name}_active'] = (g.get_active(idx).level-MIN_LEVEL) / (100-MIN_LEVEL)
@@ -199,15 +199,16 @@ def normalize(g, player_idx):
         for t in TYPES:
             n[f'type_{t.lower()}_{name}_active'] = t in g.get_active(idx).types
 
-        moves = list(g.get_active(idx).moves)
+        moves = [ x for x in g.get_active(idx).moves.values() ]
         for m in range(0,4):
+            mv = moves[m]
             if m < len(moves):
-                power = moves[m].power
+                power = mv.power
                 # TODO: if moves[m].name == "earthquake" && enemy isdiggign:
                 #
                 n[f'move{m}_power_{name}_active'] = power
-                n[f'move{m}_pp_{name}_active'] = moves[m].pp / moves[m].pp_max
-                n[f'move{m}_acc_{name}_active'] = moves[m].accuracy
+                n[f'move{m}_pp_{name}_active'] = mv.pp / mv.pp_max
+                n[f'move{m}_acc_{name}_active'] = mv.accuracy
                 # TODO: n[f'move{m}_crit_{name}_active'] = moves[m].accuracy
 
         if name == 'player':

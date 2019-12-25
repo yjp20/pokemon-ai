@@ -4,6 +4,7 @@ function linkStyle(url) {
 	linkEl.href = url;
 	document.head.appendChild(linkEl);
 }
+
 function requireScript(url) {
 	var scriptEl = document.createElement('script');
 	scriptEl.src = url;
@@ -35,7 +36,6 @@ requireScript(PREFIX+'/js/battle.js');
 
 var Replay = {
 	init: function () {
-
 		// Showdown
 		const battle = $("#battle")
 		const battle_log = $("#battle-log")

@@ -40,6 +40,7 @@ class Move:
         self.pp_max = 0
         self.power = 100
         self.accuracy = 1
+        self.critratio = 1
 
         # Move flags
         self.authentic = False
@@ -78,6 +79,9 @@ class Move:
         self.pp_max = move["pp"]
         self.target = move["target"]
         self.type = move["type"]
+
+        if "critRatio" in move:
+            self.critratio = int(move["critRatio"])
 
         if guess:
             self.pp = move["pp"]

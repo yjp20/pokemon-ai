@@ -1,9 +1,9 @@
 [submodule "thirdparty/Pokemon-Showdown"]
 	path = thirdparty/Pokemon-Showdown
 	url = https://github.com/Zarel/Pokemon-Showdown
-[submodule "web/jsoneditor"]
-	path = web/jsoneditor
-	url = https://github.com/josdejong/jsoneditor
 [submodule "web/pokemon-showdown-client"]
 	path = web/pokemon-showdown-client
 	url = https://github.com/smogon/pokemon-showdown-client
+[submodule "web/jsoneditor"]
+	path = web/jsoneditor
+	url = https://github.com/josdejong/jsoneditor
