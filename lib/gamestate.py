@@ -1,16 +1,12 @@
 """
-Module contains GameState class that adjusts data based on the input from the
-simulator, either local, online, or even replays.
+This module contains the GameState, Player, Pokemon, and Move classes. These
+classes help store the information within the board by parsing the showdown
+protocol messages and changing the relevant variables.
 
-Currently, this module only supports singles gamemodes, but it should be not
-_too_ difficult to add support to doubles. However, some of the core logic will
-have to be rethought.
-
-There are also some minor actions from the newer generations that are not
-currently handled. Those should be relatively easy to implement.
+Currently, this code is only fully applicable to gen1 and gen2 singles, since
+the future generations and the doubles respectively require far more
+complication in the code than is necessary.
 """
-
-# pylint: disable=too-many-instance-attributes, invalid-name
 
 import copy
 import json
@@ -24,7 +20,9 @@ LOGGER = logging.getLogger("pokemon-ai.local")
 
 class Move:
     """
-    The Move class stores all the information related to a pokemon move.
+    The Move class stores all the information related to a pokemon move and
+    also can find moves based on their name and fill out the rest of the
+    information.
     """
     def __init__(self, gen):
         # Move meta data
@@ -69,10 +67,10 @@ class Move:
         """
         Finds the move within the movedex using its name and fills in various
         stats and details about the move. The only thing that the guess
-        paramter currently does is fill in the pp stat with the pp_max.
+        paramter currently does is fill in the pp stat with the pp_max since
+        that is the only "unknown" part of the move.
         """
         move = lib.dex.dexes[self.gen]["Movedex"][standardize_string(self.name)]
-        # print(json.dumps(move, indent=4))
         self.category = move["category"]
         self.num = move["num"]
         self.power = move["basePower"]
@@ -101,27 +99,29 @@ class Pokemon:
     provides various functions that can help bots by accessing relevant
     information from the Pokedex from the Pokemon-Showdown project.
     """
-    def __init__(self, gen):
+    def __init__(self, gen, player_idx=None):
         self.gen = gen
+        self.player_idx = player_idx
         self.num = 0
         self.name = ""
-        self.level = 0
-        self.hp = 1
-        self.maxhp = 100
         self.faint = False
-        self.atk = 100
-        self.defense = 100
-        self.mustrecharge = -1 # must recharge, due to the way that the protocol was implemented,
-                               # is represented as the turn in which mustrecharge is given
-        self.spa = 100
-        self.spd = 100
-        self.spe = 100
+        self.level = 0
+        self.maxhp = 100
+        self.hp_percent = 1
+        self.base_atk = 100
+        self.base_def = 100
+        self.base_spa = 100
+        self.base_spd = 100
+        self.base_spe = 100
+
+        # mustrecharge is measured by the turn number where it was
+        self.mustrecharge = -1
         self.ability = ""
         self.item = ""
         self.moves = dict()
         self.status = set()
         self.types = []
-        self.transformed_as = None # Is a Pokemon instance if the pokemon is transformed
+        self.transformed_as = None  # Is a Pokemon instance if the pokemon is transformed
 
     def find_pokemon(self, guess=False):
         """
@@ -140,11 +140,93 @@ class Pokemon:
             # Assumes max EVs and max IVs
             # Presumably, it should make the bot play more safe
             self.maxhp = (2 * pokemon["baseStats"]["hp"] + 30 + 63) * self.level / 100 + self.level + 10
-            self.defense = ((2 * pokemon["baseStats"]["def"] + 30 + 63) * self.level / 100 + 5)
-            self.atk = ((2 * pokemon["baseStats"]["atk"] + 30 + 63) * self.level / 100 + 5)
-            self.spa = ((2 * pokemon["baseStats"]["spa"] + 30 + 63) * self.level / 100 + 5)
-            self.spd = ((2 * pokemon["baseStats"]["spd"] + 30 + 63) * self.level / 100 + 5)
-            self.spe = ((2 * pokemon["baseStats"]["spe"] + 30 + 63) * self.level / 100 + 5)
+            self.base_def = ((2 * pokemon["baseStats"]["def"] + 30 + 63) * self.level / 100 + 5)
+            self.base_atk = ((2 * pokemon["baseStats"]["atk"] + 30 + 63) * self.level / 100 + 5)
+            self.base_spa = ((2 * pokemon["baseStats"]["spa"] + 30 + 63) * self.level / 100 + 5)
+            self.base_spd = ((2 * pokemon["baseStats"]["spd"] + 30 + 63) * self.level / 100 + 5)
+            self.base_spe = ((2 * pokemon["baseStats"]["spe"] + 30 + 63) * self.level / 100 + 5)
+
+    def is_mustrecharge(self, turn):
+        return turn + 2 < self.mustrecharge
+
+    @property
+    def atk(self):
+        return self.base_atk
+
+    @atk.setter
+    def atk(self, atk):
+        self.base_atk = atk
+
+    @property
+    def defense(self):
+        return self.base_def
+
+    @defense.setter
+    def defense(self, defense):
+        self.base_def = defense
+
+    @property
+    def spa(self):
+        return self.base_spa
+
+    @spa.setter
+    def spa(self, spa):
+        self.base_spa = spa
+
+    @property
+    def spd(self):
+        return self.base_spd
+
+    @spd.setter
+    def spd(self, spd):
+        self.base_spd = spd
+
+    @property
+    def spe(self):
+        return self.base_spe
+
+    @spe.setter
+    def spe(self, spe):
+        self.base_spe = spe
+
+    @property
+    def hp(self):
+        return self._hp_percent * self.maxhp
+
+    @hp.setter
+    def hp(self, hp):
+        self.hp_percent = hp/self.maxhp
+
+
+class Player:
+    def __init__(self):
+        self.active = ""
+        self.boosts = dict()
+        self.volatile_status = set()
+        self.team = dict()
+        self.secret = []
+        self.is_player = False
+
+        self.reset_boost()
+        self.reset_status()
+
+    def get_active(self):
+        if self.active in self.team:
+            return self.team[self.active]
+        return None
+
+    def reset_boost(self):
+        self.boosts = {
+            "atk": 0,
+            "def": 0,
+            "spa": 0,
+            "spd": 0,
+            "spe": 0,
+            "accuracy": 0,
+        }
+
+    def reset_status(self):
+        self.status = set()
 
 
 class GameState:
@@ -156,48 +238,35 @@ class GameState:
         self._sim_args_table = {}
         self._set_sim_table()
 
-        # META DATA
+        # game meta data
         self.gametype = ""  # Stores gametype like "singles" or "doubles"
         self.gen = gen  # Stores the generation as a string like "gen1"
         self.tier = ""  # Kind of useless (?)
-        self.player_idx = -1 # Index of this player
+        self.player_idx = -1  # Index of gamestate owner
         self.player_name = name
         self._player_list = []  # [0] => p1's name | [1] => p2's name  etc...
-
-        # _player_map{name} => player idx related to that player's name
-        # like "[Gen 1] Random Battle"
-        self._player_map = {}
 
         self.rated = False
         self.result = -1  # -1=undecided | 0=tie | x=winning player number
         self.inactive = False  # Inactive timer
 
-        # USEFUL DATA
+        # for owner of this gamestate
         self.wait = False
         self.started = False
         self.force_switch = False
 
-        # Stores "perfect" information about the bot's pokemons by
-        # containing the bot's pokemons in an array
-        self.party = []
+        # _player_map{name} => player idx related to that player's name
+        # like "[Gen 1] Random Battle"
+        self._player_map = {}
 
-        # Stores "imperfect" information about all pokemons by
-        # containing an array for each player with each array looking
-        # something like [Pokemon(), Pokemon(), ...]
         self.players = []
-        self._player_pokemon_map = dict()
-
-        self.player_active = [""] * 4
-        self.player_boost = [dict()] * 4
-        self.player_status = [set()] * 4
         self.turn = 0
         self.upkeep = False
-        self.moves = []
+
+        self.move_history = []
 
         for i in range(0, 4):
-            self._reset_boost(i)
-            self._reset_status(i)
-            self.players.append(dict())
+            self.players.append(Player())
 
     def __dict__(self):
         data = {
@@ -211,11 +280,9 @@ class GameState:
             "force_switch": self.force_switch,
             "party": self.party,
             "players": self.players,
-            "player_boost": self.player_boost,
-            "player_active": self.player_active,
             "turn": self.turn,
             "upkeep": self.upkeep,
-            "moves": self.moves,
+            "move_history": self.move_history,
             "player_idx": self.player_idx,
             "player_name": self.player_name,
         }
@@ -235,17 +302,10 @@ class GameState:
                           indent=4)
 
     def _reset_boost(self, player_idx: int):
-        self.player_boost[player_idx] = {
-            "atk": 0,
-            "def": 0,
-            "spa": 0,
-            "spd": 0,
-            "spe": 0,
-            "accuracy": 0,
-        }
+        self.players[player_idx].reset_boost()
 
     def _reset_status(self, player_idx: int):
-        self.player_status[player_idx] = set()
+        self.players[player_idx].reset_status()
 
     def _set_sim_table(self):
         self._sim_args_table = {
@@ -346,17 +406,16 @@ class GameState:
             self.party = []
             pokemons = data["side"]["pokemon"]
             for pokemon in pokemons:
-                new = Pokemon(self.gen)
+                new = Pokemon(self.gen, self.player_idx)
                 (_, _, new.name) = read_ident(pokemon["ident"])
                 (_, level) = read_details(pokemon["details"])
-                (new.hp, new.maxhp, new.faint,
-                 new.status) = read_condition(pokemon["condition"])
+                (new.hp_percent, new.maxhp, new.faint, new.status) = read_condition(pokemon["condition"])
                 new.level = int(level)
-                new.defense = int(pokemon["stats"]["def"])
-                new.atk = int(pokemon["stats"]["atk"])
-                new.spa = int(pokemon["stats"]["spa"])
-                new.spd = int(pokemon["stats"]["spd"])
-                new.spe = int(pokemon["stats"]["spe"])
+                new.base_def = int(pokemon["stats"]["def"])
+                new.base_atk = int(pokemon["stats"]["atk"])
+                new.base_spa = int(pokemon["stats"]["spa"])
+                new.base_spd = int(pokemon["stats"]["spd"])
+                new.base_spe = int(pokemon["stats"]["spe"])
                 new.ability = pokemon["baseAbility"]
                 new.item = pokemon["item"]
                 for move_name in pokemon["moves"]:
@@ -376,7 +435,7 @@ class GameState:
     def _set_mustrecharge(self, args):
         (player, idx, name) = read_ident(args[0])
         player_idx = int(player) - 1
-        self.get_active(player_idx).mustrecharge = self.turn
+        self.players[player_idx].get_active().mustrecharge = self.turn
         if idx == self.player_idx:
             self.get_player_active().mustrecharge = self.turn
 
@@ -393,33 +452,33 @@ class GameState:
     def _set_switch(self, args):
         (player, _, _) = read_ident(args[0])
         (name, level) = read_details(args[1])
-        (hp, _, faint, status) = read_condition(args[2])
+        (hp_percent, _, faint, status) = read_condition(args[2])
         player_idx = int(player) - 1
         name = standardize_string(name)
 
-        if self.player_active[player_idx]:
-            self.get_active(player_idx).transformed_as = None
+        if self.players[player_idx].get_active():
+            self.players[player_idx].get_active().transformed_as = None
 
-        self.player_active[player_idx] = name
+        self.players[player_idx].active = name
         self._reset_boost(player_idx)
         self._reset_status(player_idx)
 
-        if name not in self.players[player_idx]:
-            new = Pokemon(self.gen)
+        if name not in self.players[player_idx].team:
+            new = Pokemon(self.gen, player_idx)
             new.name = name
             new.level = level
-            new.hp = hp
+            new.hp_percent = hp_percent
             new.faint = faint
             new.status = status
             new.find_pokemon(True)
-            self.players[player_idx][name] = new
+            self.players[player_idx].team[name] = new
 
     def _set_status(self, args):
         # Not sure if this and curestatus are strictly needed, but decided
         # to do it anyway for the sake of a more complete and ideally foolproof
         # system.
         player_idx = int(args[0][1]) - 1
-        pokemon = self.get_active(player_idx)
+        pokemon = self.players[player_idx].get_active()
         pokemon.status.add(args[1])
 
     def _set_cureteam(self, args):
@@ -429,7 +488,7 @@ class GameState:
 
     def _set_curestatus(self, args):
         player_idx = int(args[0][1]) - 1
-        pokemon = self.get_active(player_idx)
+        pokemon = self.players[player_idx].get_active()
         pokemon.status.remove(args[1])
 
     def _set_clearboost(self, args):
@@ -443,23 +502,23 @@ class GameState:
     def _set_damage(self, args):
         player_idx = int(args[0][1]) - 1
         (hp, _, faint, status) = read_condition(args[1])
-        pokemon = self.get_active(player_idx)
+        pokemon = self.players[player_idx].get_active()
         pokemon.hp = hp
         pokemon.faint = faint
         pokemon.status = status
 
     def _set_boost(self, args):
         player_idx = int(args[0][1]) - 1
-        self.player_boost[player_idx][args[1]] += int(args[2])
+        self.players[player_idx].boosts[args[1]] += int(args[2])
 
     def _set_unboost(self, args):
         player_idx = int(args[0][1]) - 1
-        self.player_boost[player_idx][args[1]] -= int(args[2])
+        self.players[player_idx].boosts[args[1]] -= int(args[2])
 
     def _set_transform(self, args):
         player_idx = int(args[0][1]) - 1
         other_idx = int(args[1][1]) - 1
-        player_pokemon = self.get_active(player_idx)
+        player_pokemon = self.players[player_idx].get_active()
         other_pokemon = self.get_active(other_idx)
         player_pokemon.transformed_as = copy.deepcopy(other_pokemon)
         if player_idx == self.player_idx:
@@ -467,7 +526,7 @@ class GameState:
 
     def _set_hp(self, args):
         player_idx = int(args[0][1]) - 1
-        pokemon = self.get_active(player_idx)
+        pokemon = self.players[player_idx].get_active()
         hp, _, _, _ = read_condition(args[1])
         pokemon.hp = hp
 
@@ -476,7 +535,7 @@ class GameState:
         move_name = standardize_string(args[1])
         if move_name == 'recharge':
             return
-        pokemon = self.get_active(player_idx)
+        pokemon = self.players[player_idx].get_active()
         if move_name not in pokemon.moves:
             move = Move(self.gen)
             move.name = move_name
@@ -486,28 +545,22 @@ class GameState:
 
     def _set_volatile_status_start(self, args):
         player_idx = int(args[0][1]) - 1
-        self.player_status[player_idx].add(standardize_string(args[1]))
+        self.players[player_idx].status.add(standardize_string(args[1]))
 
     def _set_volatile_status_end(self, args):
         player_idx = int(args[0][1]) - 1
         std_string = standardize_string(args[1])
-        if std_string in self.player_status[player_idx]:
-            self.player_status[player_idx].remove(standardize_string(args[1]))
-
-    def get_active(self, player_idx: int) -> Pokemon:
-        return self.players[player_idx][self.player_active[player_idx]]
-
-    def get_player_active(self) -> Pokemon:
-        return get_active(self.player_idx)
+        if std_string in self.players[player_idx].status:
+            self.players[player_idx].status.remove(standardize_string(args[1]))
 
     def get_boost(self, idx, name) -> int:
-        return self.player_boost[idx][name]
+        return self.players[idx].boosts[name]
 
     def parse(self, line):
         """
         Accepts line from simulator and takes appropiate action in modifying
         the gamestate. An example message from the simulator will look
-        something like "|{action}|{argument 1}|{argument 2 ...}", so this
+        something like `|{action}|{argument 1}|{argument 2 ...}`, so this
         function will look for the corresponding action as defined within the
         _sim_args_table.
 

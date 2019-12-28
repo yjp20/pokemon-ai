@@ -1,29 +1,22 @@
-.. pokemon-ai documentation master file, created by
-   sphinx-quickstart on Tue Oct 29 00:55:12 2019.
+.. poke documentation master file, created by
+   sphinx-quickstart on Sat Dec 28 11:35:53 2019.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to pokemon-ai's documentation!
-======================================
+Welcome to poke's documentation!
+================================
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 4
    :caption: Contents:
 
-.. automodule:: lib.local
+   ai
+   lib
+   pokemon_ai
+   replay_scraper
+   replay_watcher
+   setup
 
-.. autoclass:: Local
-    :members:
-
-.. automodule:: lib.showdown
-
-.. autoclass:: Showdown
-    :members:
-
-.. automodule:: lib.bots
-
-.. autoclass:: Bot
-    :members:
 
 Indices and tables
 ==================

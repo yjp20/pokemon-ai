@@ -19,10 +19,9 @@ sys.path.insert(0, os.path.abspath('../..'))
 
 # -- Project information -----------------------------------------------------
 
-autodoc_mock_imports = ["lib.dex"]
 project = 'pokemon-ai'
-copyright = '2019, Michael Cho, Young Jin Park'
-author = 'Michael Cho, Young Jin Park'
+copyright = '2019, Young Jin Park'
+author = 'Young Jin Park, Michael Cho'
 
 # The short X.Y version
 version = ''
@@ -40,14 +39,11 @@ release = ''
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinxcontrib.napoleon',
+    'sphinx.ext.napoleon',
     'sphinx.ext.autodoc',
-    'sphinx.ext.doctest',
-    'sphinx.ext.intersphinx',
-    'sphinx.ext.todo',
-    'sphinx.ext.coverage',
-    'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
+    'sphinx.ext.todo',
+    'sphinx_autodoc_typehints',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -67,12 +63,12 @@ master_doc = 'index'
 #
 # This is also used if you do content translation via gettext catalogs.
 # Usually you set "language" from the command line for these cases.
-language = None
+language = 'en'
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
-exclude_patterns = []
+exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
@@ -83,7 +79,7 @@ pygments_style = None
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'alabaster'
+html_theme = 'sphinx_rtd_theme'
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -110,7 +106,7 @@ html_static_path = ['_static']
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = 'pokemon-aidoc'
+htmlhelp_basename = 'pokedoc'
 
 
 # -- Options for LaTeX output ------------------------------------------------
@@ -137,8 +133,8 @@ latex_elements = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'pokemon-ai.tex', 'pokemon-ai Documentation',
-     'Michael Cho, Young Jin Park', 'manual'),
+    (master_doc, 'poke.tex', 'poke Documentation',
+     'Author', 'manual'),
 ]
 
 
@@ -147,7 +143,7 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, 'pokemon-ai', 'pokemon-ai Documentation',
+    (master_doc, 'poke', 'poke Documentation',
      [author], 1)
 ]
 
@@ -158,8 +154,8 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'pokemon-ai', 'pokemon-ai Documentation',
-     author, 'pokemon-ai', 'One line description of project.',
+    (master_doc, 'poke', 'poke Documentation',
+     author, 'poke', 'One line description of project.',
      'Miscellaneous'),
 ]
 
@@ -183,11 +179,6 @@ epub_exclude_files = ['search.html']
 
 
 # -- Extension configuration -------------------------------------------------
-
-# -- Options for intersphinx extension ---------------------------------------
-
-# Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'https://docs.python.org/': None}
 
 # -- Options for todo extension ----------------------------------------------
 

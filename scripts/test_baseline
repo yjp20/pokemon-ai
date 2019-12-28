@@ -1,0 +1,3 @@
+#!/bin/sh
+
+./pokemon_ai.py local --savereplay true --bot1=baseline2

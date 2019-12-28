@@ -159,25 +159,26 @@ def normalize(g, player_idx):
     pi = player_idx
     oi = pi^1
     n = dict()
-    n['player_faster_than_opp'] = g.get_active(pi).spd >= g.get_active(oi).spd
+    n['player_faster_than_opp'] = g.players[pi].get_active().spe >= g.players[oi].get_active().spe
 
     for i in (('player', pi, oi), ('opponent', oi, pi)):
         name, idx, opp = i
-        n[f'percent_known_of_{name}'] = len(g.players[idx-1]) / 6
-        n[f'percent_known_moves_of_{name}_active'] = len(g.get_active(idx).moves) / 4
-        n[f'level_of_{name}_active'] = (g.get_active(idx).level-MIN_LEVEL) / (100-MIN_LEVEL)
+        active = g.players[idx].get_active()
+        n[f'percent_known_of_{name}'] = len(g.players[idx-1].team) / 6
+        n[f'percent_known_moves_of_{name}_active'] = len(active.moves) / 4
+        n[f'level_of_{name}_active'] = (active.level-MIN_LEVEL) / (100-MIN_LEVEL)
 
-        n[f'base_atk_{name}_active'] = g.get_active(idx).atk / 350
-        n[f'base_def_{name}_active'] = g.get_active(idx).defense / 350
-        n[f'base_spa_{name}_active'] = g.get_active(idx).spa / 350
-        n[f'base_spd_{name}_active'] = g.get_active(idx).spd / 350
-        n[f'base_spe_{name}_active'] = g.get_active(idx).spe / 350
+        n[f'base_atk_{name}_active'] = active.atk / 350
+        n[f'base_def_{name}_active'] = active.defense / 350
+        n[f'base_spa_{name}_active'] = active.spa / 350
+        n[f'base_spd_{name}_active'] = active.spd / 350
+        n[f'base_spe_{name}_active'] = active.spe / 350
 
-        n[f'real_atk_{name}_active'] = g.get_boost(idx, 'atk') * g.get_active(idx).atk / 1500
-        n[f'real_def_{name}_active'] = g.get_boost(idx, 'def') * g.get_active(idx).defense / 1500
-        n[f'real_spa_{name}_active'] = g.get_boost(idx, 'spa') * g.get_active(idx).spa / 1500
-        n[f'real_spd_{name}_active'] = g.get_boost(idx, 'spd') * g.get_active(idx).spd / 1500
-        n[f'real_spe_{name}_active'] = g.get_boost(idx, 'spe') * g.get_active(idx).spe / 1500
+        n[f'real_atk_{name}_active'] = g.players[idx].boosts['atk'] * active.atk / 1500
+        n[f'real_def_{name}_active'] = g.players[idx].boosts['def'] * active.defense / 1500
+        n[f'real_spa_{name}_active'] = g.players[idx].boosts['spa'] * active.spa / 1500
+        n[f'real_spd_{name}_active'] = g.players[idx].boosts['spd'] * active.spd / 1500
+        n[f'real_spe_{name}_active'] = g.players[idx].boosts['spe'] * active.spe / 1500
 
         n[f'boost_atk_{name}_active'] = (g.get_boost(idx, 'atk') + 6) / 12
         n[f'boost_def_{name}_active'] = (g.get_boost(idx, 'def') + 6) / 12
@@ -190,19 +191,19 @@ def normalize(g, player_idx):
         # n[f'is_leech_seeded_{name}_active']
         # n[f'is_flying_{name}_active']
         # n[f'is_underground_{name}_active']
-        n[f'is_recharging_{name}_active'] = g.get_active(idx).mustrecharge + 2 > g.turn
+        n[f'is_recharging_{name}_active'] = active.mustrecharge + 2 > g.turn
         # n[f'is_charging_{name}_active']
 
         for s in STATUS:
-            n[f'is_{s}_{name}_active'] = s in g.get_active(idx).status
+            n[f'is_{s}_{name}_active'] = s in active.status
 
         for t in TYPES:
-            n[f'type_{t.lower()}_{name}_active'] = t in g.get_active(idx).types
+            n[f'type_{t.lower()}_{name}_active'] = t in active.types
 
-        moves = [ x for x in g.get_active(idx).moves.values() ]
+        moves = [ x for x in active.moves.values() ]
         for m in range(0,4):
-            mv = moves[m]
             if m < len(moves):
+                mv = moves[m]
                 power = mv.power
                 # TODO: if moves[m].name == "earthquake" && enemy isdiggign:
                 #

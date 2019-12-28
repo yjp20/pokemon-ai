@@ -13,15 +13,23 @@ import lib.normalizer as normalizer
 MODE_ALL = -1
 LOGGER = logging.getLogger("pokemon-ai.local")
 
+
 def handle(x):
     if isinstance(x, set):
         return list(x)
     return x.__dict__
 
+
 class Local():
     """
-    Local uses Pokemon-Showdown's simulate battle functionality to conduct a
+    The Local class uses Pokemon-Showdown's simulate battle functionality to conduct a
     fight locally.
+
+    Attributes:
+        process (subprocess.Local): The subprocess that runs the showdown battle stream with the
+                                    official Pokemon-Showdown code
+        save_replay (bool):         Boolean value which determines whether to save the replay to
+                                    'replay.html' or not to.
     """
     def __init__(self, bot_list, gamemode, num, save_replay):
         args = ['node', 'lib/multirunner.js', '2>/dev/null']
@@ -107,6 +115,7 @@ class Local():
                 LOGGER.debug("---- ASK MOVE ----")
                 for i in range(1, len(self.bots)):
                     if self.save_replay:
+                        print(self.bots[i].gamestate.__dict__())
                         ng = copy.deepcopy(self.bots[i].gamestate.__dict__())
                         self.bot_gamestates[i].append(ng)
                         self.bot_norm[i].append(normalizer.normalize(self.bots[i].gamestate, self.bots[i].gamestate.player_idx))
@@ -153,4 +162,3 @@ class Local():
                             self.bots[i].read(line)
                         if self.save_replay:
                             self.replay_log.append(line)
-

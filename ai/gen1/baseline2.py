@@ -6,8 +6,6 @@ import lib.gamestate as gs
 # 5-9 are the switches
 # Both of the above are in order as stored in gamestate
 
-physical = ["normal", "fighting", "flying", "poison", "ground", "rock", "bug", "ghost", "steel"]
-
 
 def damage_calc(atker: gs.Pokemon,
                 defder: gs.Pokemon,
@@ -135,7 +133,7 @@ def choose_move(state) -> int:
         if temp_best > best_value:
             best_value = temp_best
             best_option = options.index(pkmn) + 5
-        temp_best = min([simulate(ally = pkmn, opp = opp_pkmn) for opp_pkmn in opp.party if opp_pkmn != opp_active and not opp_pkmn.faint])
+        temp_best = min([simulate(pkmn, opp_pkmn) for opp_pkmn in opp.party if opp_pkmn != opp_active and not opp_pkmn.faint])  # Nani
         if temp_best > best_value:
             best_value = temp_best
             best_option = options.index(pkmn) + 5
