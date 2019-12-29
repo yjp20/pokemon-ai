@@ -2,6 +2,8 @@
 This module loads the pokemon dexes from the `pokemon-ai/data/dex` directory as
 a global variable of this module. The data files must be pre-generated with the
 `build_dexes.py` script.
+
+Attributes
 """
 
 import json

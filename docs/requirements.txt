@@ -3,4 +3,3 @@ requests==2.22.0
 coloredlogs==10.0
 websockets==8.0.2
 sphinx-autodoc-typehints==1.10.3
-

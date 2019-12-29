@@ -1,0 +1,5 @@
+#!/bin/sh
+
+cd docs
+sphinx-apidoc3 -f -o ./source ..
+make html

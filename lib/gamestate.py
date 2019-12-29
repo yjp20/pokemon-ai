@@ -15,7 +15,7 @@ import logging
 
 import lib.dex
 
-LOGGER = logging.getLogger("pokemon-ai.local")
+LOGGER = logging.getLogger("pokemon-ai.gamestate")
 
 
 class Move:
@@ -23,8 +23,38 @@ class Move:
     The Move class stores all the information related to a pokemon move and
     also can find moves based on their name and fill out the rest of the
     information.
+
+    Args:
+        gen (str): The string representing the gen of the game like ``gen1``.
+
+    Attributes:
+        gen (str): The string representing the gen of the game like ``gen1``.
+        num (int): The move number as is shown in the official Pokedex.
+        name (str): The standardized string name of the Pokemeon.
+        category (str): One of ``Physical``, ``Special``, or ``Status``.
+        target (str): One of ``normal`` or ``self``.
+        type (str): The type of the move as a string. It is the capitalized full name of the type like ``Psychic``.
+        pp (int): Current pp left of the move.
+        pp_max (int): The maximum pp for the move.
+        power (int): The power of the move.
+        accuracy (float): The accuracy of the move as a float between 0~1.
+        critratio (float): The crit ratio of the move, but as a multiplier of the normal chance.
+        volatile_stauts (str):
+            Indicates that this move may apply on of the volatile statuses like 'flinch' 
+        status (str):
+            Indicates that this move may apply one of the major non-volatile statuses like `psn`, `tox`, `brn`, and
+            `par` that can be applied to the target pokemon.
+        status_chance (str): The chance to apply the status of the move as a float between 0~1.
+        drain (float): Percent drain of damage as a float between 0~1.
+        recoil (float) Percent recoil of damage as a float between 0~1.
+        heal (float): Percent heal of max hp as a float between 0~1.
+        multihit:
+            Raw representation of multihit as is done in the Pokemon Showdown Movedex. This can therefore either be a
+            list or an int.
+        multihit_multiplier: The average multiplier of the damage dealt by the multihit of power
+        priority (int): Priority of the move which determines the order these moves execute while ignoring speed.
     """
-    def __init__(self, gen):
+    def __init__(self, gen: str):
         # Move meta data
         self.gen = gen
         self.num = 0
@@ -39,29 +69,43 @@ class Move:
         self.power = 100
         self.accuracy = 1
         self.critratio = 1
+        self.status = ""
+        self.volatile_status = ""
+        self.status_chance = ""
+        self.drain = 0
+        self.recoil = 0
+        self.heal = 0
+
+        # TODO
+
+        self.multihit = 0
+        self.multihit_multiplier = 0
+        self.priority = 0
 
         # Move flags
-        self.authentic = False
-        self.bite = False
-        self.bullet = False
-        self.charge = False
-        self.contact = False
-        self.dance = False
-        self.defrost = False
-        self.distance = False
-        self.gravity = False
-        self.heal = False
-        self.mirror = False
-        self.mystery = False
-        self.nonsky = False
-        self.powder = False
-        self.protect = False
-        self.pulse = False
-        self.punch = False
-        self.recharge = False
-        self.reflectable = False
-        self.snatch = False
-        self.sound = False
+        self.flags = {
+            "authentic": False,
+            "bite": False,
+            "bullet": False,
+            "charge": False,
+            "contact": False,
+            "dance": False,
+            "defrost": False,
+            "distance": False,
+            "gravity": False,
+            "heal": False,
+            "mirror": False,
+            "mystery": False,
+            "nonsky": False,
+            "powder": False,
+            "protect": False,
+            "pulse": False,
+            "punch": False,
+            "recharge": False,
+            "reflectable": False,
+            "snatch": False,
+            "sound": False,
+        }
 
     def find_move(self, guess=False):
         """
@@ -79,18 +123,78 @@ class Move:
         self.type = move["type"]
 
         if "critRatio" in move:
-            self.critratio = int(move["critRatio"])
+            critmults = []
 
-        if guess:
-            self.pp = move["pp"]
+            gen = int(self.gen[3])
+            if gen <= 5:
+                critmults = [0, 16, 8, 4, 3, 2]
+            elif gen == 6:
+                critmults = [0, 16, 8, 2, 1]
+            elif gen > 6:
+                critmults = [0, 24, 8, 2, 1]
+            self.critratio = 1/critmults[move["critRatio"]]
+
+        if "willCrit" in move:
+            self.critratio = 1
+
+        if "status" in move:
+            self.status = move["status"]
+            self.status_chance = 1
+
+        if "recoil" in move:
+            # Pokemon showdown provides recoil as a fraction
+            self.recoil = move["recoil"][0] / move["recoil"][1]
+
+        if "heal" in move:
+            # Pokemon showdown provides heal as a fraction
+            if int(self.gen[3]) >= 5:
+                self.heal = move["heal"][0] / move["heal"][1]
+            else:
+                self.heal = 1/2
+
+        if "drain" in move:
+            # Pokemon showdown provides heal as a fraction
+            self.drain = move["drain"][0] / move["drain"][1]
+
+        if "multihit" in move:
+            # Multihit is sometimes represented as a range, in which case it is written in a list.
+            # It is otherwise written as a whole number, which then does not have probability concerns.
+            # Thankfully, the only case where multihit is a range is between 2~5, where there is a
+            # 1/3 probability for 2 or 3 hits and 1/6 probability for 4 or 5 hits. Therefore, this
+            # code only contains an exception for that case
+            if type(move["multihit"]) == list:
+                self.multihit = [2, 5]
+                self.multihit_multiplier = 4/6 + 6/6 + 4/6 + 5/6
+            else:
+                self.multihit = move["multihit"]
+                self.multihit_multiplier = move["multihit"]
+
+        if "secondary" in move:
+            if move["secondary"] and "status" in move["secondary"]:
+                if "status" in move["secondary"]:
+                    self.status = move["secondary"]["status"]
+                if "volatileStatus" in move["secondary"]:
+                    self.volatile_status = move["secondary"]["volatileStatus"]
+
+                self.status_chance = move["secondary"]["chance"] / 100
+
+        if "secondaries" in move:
+            # Since the first secondary is generally far more important, for now we will only store the first.
+            if move["secondaries"][0] and "status" in move["secondaries"][0]:
+                self.status = move["secondaries"][0]["status"]
+                self.status_chance = move["secondaries"][0]["chance"] / 100
+
+        if "flag" in move:
+            for flag in move["flags"]:
+                self.flags[flag] = True
 
         if isinstance(move["accuracy"], int):
             self.accuracy = move["accuracy"] / 100
         if isinstance(move["accuracy"], bool):
             self.accuracy = 1
-        if "flag" in move:
-            for flag in move["flags"]:
-                self.__setattr__(flag, True)
+
+        if guess:
+            self.pp = move["pp"]
 
 
 class Pokemon:
@@ -151,51 +255,44 @@ class Pokemon:
 
     @property
     def atk(self):
+        multiplier = 1
         return self.base_atk
-
-    @atk.setter
-    def atk(self, atk):
-        self.base_atk = atk
 
     @property
     def defense(self):
         return self.base_def
 
-    @defense.setter
-    def defense(self, defense):
-        self.base_def = defense
-
     @property
     def spa(self):
         return self.base_spa
-
-    @spa.setter
-    def spa(self, spa):
-        self.base_spa = spa
 
     @property
     def spd(self):
         return self.base_spd
 
-    @spd.setter
-    def spd(self, spd):
-        self.base_spd = spd
-
     @property
     def spe(self):
         return self.base_spe
 
-    @spe.setter
-    def spe(self, spe):
-        self.base_spe = spe
-
     @property
     def hp(self):
-        return self._hp_percent * self.maxhp
+        return self.hp_percent * self.maxhp
 
     @hp.setter
     def hp(self, hp):
         self.hp_percent = hp/self.maxhp
+
+    def used_protect(self):
+        return False  # TODO
+
+    def is_poisoned(self):
+        return "psn" in self.status
+
+    def is_burned(self):
+        return "brn" in self.status
+
+    def is_leech_seeded(self):
+        return False  # TODO
 
 
 class Player:
@@ -204,13 +301,15 @@ class Player:
         self.boosts = dict()
         self.volatile_status = set()
         self.team = dict()
-        self.secret = []
+        self.secret = dict()
         self.is_player = False
 
         self.reset_boost()
         self.reset_status()
 
-    def get_active(self):
+    def get_active(self, secret=False):
+        if secret and self.active in self.team:
+            return self.secret[self.active]
         if self.active in self.team:
             return self.team[self.active]
         return None
@@ -231,10 +330,28 @@ class Player:
 
 class GameState:
     """
-    Stores gamestate as GameState.state, which is then used by the bot. This
-    class also normalizes data to be used in ML purporses.
+    This class handles protocol messages sent as a Pokemon-Showdown battle
+    stream and parses the data into a usable form.
+
+    Attributes:
+        gametype (str): Stores gametype like "singles" or "doubles"
+        gen (str): Stores the generation as a string like "gen1"
+        tier (str): TODO
+        player_idx (int):
+            Index of the player related to this gamestate. It is stored as the
+            player number designated by showdown subtracted by 1.
+
+            1. p1 -> 0
+
+            2. p2 -> 1
+        player_name (str):
+            In-game name of the player or bot, used to match the player to this
+            class's internal representation
+        turn (int): Turn number of the game
+        move_history: TODO
+        players (list): TODO
     """
-    def __init__(self, gen, name):
+    def __init__(self, gen, name: str):
         self._sim_args_table = {}
         self._set_sim_table()
 
@@ -278,7 +395,6 @@ class GameState:
             "inactive": self.inactive,
             "started": self.started,
             "force_switch": self.force_switch,
-            "party": self.party,
             "players": self.players,
             "turn": self.turn,
             "upkeep": self.upkeep,
@@ -403,7 +519,8 @@ class GameState:
         if "forceSwitch" in data:
             self.force_switch = True
         if "side" in data:
-            self.party = []
+            self.player_idx = int(data["side"]["id"][1]) - 1
+            self.players[self.player_idx].secret = dict()
             pokemons = data["side"]["pokemon"]
             for pokemon in pokemons:
                 new = Pokemon(self.gen, self.player_idx)
@@ -424,7 +541,7 @@ class GameState:
                     move.find_move()
                     new.moves[move_name] = move
                 new.find_pokemon(False)
-                self.party.append(new)
+                self.players[self.player_idx].secret[standardize_string(new.name)] = new
 
     def _set_start(self, _):
         self.started = True
@@ -501,9 +618,9 @@ class GameState:
 
     def _set_damage(self, args):
         player_idx = int(args[0][1]) - 1
-        (hp, _, faint, status) = read_condition(args[1])
+        (hp_percent, _, faint, status) = read_condition(args[1])
         pokemon = self.players[player_idx].get_active()
-        pokemon.hp = hp
+        pokemon.hp_percent = hp_percent
         pokemon.faint = faint
         pokemon.status = status
 
@@ -522,13 +639,13 @@ class GameState:
         other_pokemon = self.get_active(other_idx)
         player_pokemon.transformed_as = copy.deepcopy(other_pokemon)
         if player_idx == self.player_idx:
-            p = self.get_player_active().transformed_as = copy.deepcopy(other_pokemon)
+            self.get_player_active().transformed_as = copy.deepcopy(other_pokemon)
 
     def _set_hp(self, args):
         player_idx = int(args[0][1]) - 1
         pokemon = self.players[player_idx].get_active()
-        hp, _, _, _ = read_condition(args[1])
-        pokemon.hp = hp
+        hp_percent, _, _, _ = read_condition(args[1])
+        pokemon.hp_percent = hp_percent
 
     def _set_move(self, args):
         player_idx = int(args[0][1]) - 1

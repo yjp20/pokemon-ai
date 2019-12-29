@@ -12,6 +12,14 @@ lib.bots module
     :undoc-members:
     :show-inheritance:
 
+lib.choice module
+-----------------
+
+.. automodule:: lib.choice
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 lib.dex module
 --------------
 

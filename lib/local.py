@@ -25,13 +25,32 @@ class Local():
     The Local class uses Pokemon-Showdown's simulate battle functionality to conduct a
     fight locally.
 
+    Args:
+        bot_list (list): List of Bots to compete in a Local simulator.
+        gamemode (str): Format name of the gamemode to run in the local simulator.
+        num (int): Number of simulations to run.
+        save_replay (bool):
+            Boolean value which determines whether or not to save the replay to
+            'replay.html'.
     Attributes:
-        process (subprocess.Local): The subprocess that runs the showdown battle stream with the
-                                    official Pokemon-Showdown code
-        save_replay (bool):         Boolean value which determines whether to save the replay to
-                                    'replay.html' or not to.
+        process (subprocess.Local):
+            The subprocess managing the showdown BattleStream using the
+            official Pokemon-Showdown code in conjunction with the
+            multirunner.js file used to run real battles.
+        bots (list): List of Bots to compete in a Local simulator.
+        save_replay (bool):
+            Boolean value which determines whether or not to save the replay to
+            'replay.html'.
+        replay_log (list):
+            List of the log of messages that were sent to all of the bots in
+            the game which is then dumped to the replay.html file.
+        bot_gamestates (list):
+            Stores the deepcopy of each gamestate at every turn or half-turns
+            where a swith is requested of a player.
+        bot_norm(list):
+            Similar to the bot_gamestates list, but contains the normalized versions of each of the 
     """
-    def __init__(self, bot_list, gamemode, num, save_replay):
+    def __init__(self, bot_list: list, gamemode: str, num: int, save_replay: bool):
         args = ['node', 'lib/multirunner.js', '2>/dev/null']
 
         if save_replay and num > 1:
@@ -48,10 +67,11 @@ class Local():
         self.bots.extend(bot_list)
         self.save_replay = save_replay
 
+        self.replay_log = []
+        self.bot_gamestates = [None]
+        self.bot_norm = [None]
+
         if save_replay:
-            self.replay_log = []
-            self.bot_gamestates = [None]
-            self.bot_norm = [None]
             for i in range(1, len(self.bots)):
                 self.bot_gamestates.append([])
                 self.bot_norm.append([])
@@ -91,7 +111,13 @@ class Local():
             output_file.write(res)
 
     def send(self, cmd):
-        """ Send a message to self.subprocess """
+        """
+        Send a message to self.subprocess then flushes output. Appends a
+        newline if it doesn't already exist.
+
+        Args:
+            cmd (str): String to send to the subprocess.
+        """
         LOGGER.info(cmd)
         if cmd[-1] != '\n':
             self.process.stdin.write(cmd + '\n')
@@ -100,7 +126,10 @@ class Local():
         self.process.stdin.flush()
 
     def listener(self):
-        """ Listen for messages from self.subprocess """
+        """
+        Listen for messages from self.subprocess and processes them to properly
+        forward to the bots.
+        """
         line = '\n'
         mode = MODE_ALL  # Any positive number corresponds to the user's idx
         while line:
@@ -115,7 +144,6 @@ class Local():
                 LOGGER.debug("---- ASK MOVE ----")
                 for i in range(1, len(self.bots)):
                     if self.save_replay:
-                        print(self.bots[i].gamestate.__dict__())
                         ng = copy.deepcopy(self.bots[i].gamestate.__dict__())
                         self.bot_gamestates[i].append(ng)
                         self.bot_norm[i].append(normalizer.normalize(self.bots[i].gamestate, self.bots[i].gamestate.player_idx))

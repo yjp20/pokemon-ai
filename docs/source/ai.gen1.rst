@@ -12,14 +12,6 @@ ai.gen1.baseline module
     :undoc-members:
     :show-inheritance:
 
-ai.gen1.baseline2 module
-------------------------
-
-.. automodule:: ai.gen1.baseline2
-    :members:
-    :undoc-members:
-    :show-inheritance:
-
 ai.gen1.default module
 ----------------------
 
